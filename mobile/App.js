@@ -1,5 +1,7 @@
 // mobile/App.js
 import 'react-native-gesture-handler'; // 반드시 최상단
+import {setupMock} from './src/shared/mocks/setupMock'
+setupMock();
 
 import './global.css'
 import React from 'react';
