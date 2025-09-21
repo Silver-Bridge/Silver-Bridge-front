@@ -2,7 +2,8 @@
 import 'react-native-gesture-handler'; // 반드시 최상단
 import {setupMock} from './src/shared/mocks/setupMock'
 import AsyncStorage from '@react-native-async-storage/async-storage';
-setupMock();
+import client from './src/shared/api/client'
+setupMock(client);
 
 import './global.css'
 import React, { useEffect } from 'react';
