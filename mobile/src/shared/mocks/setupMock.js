@@ -1,7 +1,6 @@
 import MockAdapter from 'axios-mock-adapter';
 import client from '../api/client';
 import { USE_MOCK } from '@env';
-import todos from './data/todos.json';
 
 const DELAY_MS = 400;
 
@@ -10,10 +9,10 @@ export function setupMock() {
 
     const mock = new MockAdapter(client, {delayResponse: DELAY_MS});
 
-    // 로그인 (이메일/비번 있으면 성공)
+    // 로그인 (전화번호/비번 있으면 성공)
     mock.onPost('/auth/login').reply((config) => {
         const body = JSON.parse(config.data || '{}');
-        if (body.email && body.password) {
+        if (body.phone && body.password) {
             return [200, {accessToken: 'mock-token-123', user: {id: 1, name: 'Mock User'}}];
         }
         return [401, {message: 'Invalid credentials'}];
