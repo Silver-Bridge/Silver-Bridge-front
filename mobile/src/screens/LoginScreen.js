@@ -117,7 +117,7 @@ export default function LoginScreen({ navigation }) {
                                 <Text className="text-[12.5px] text-gray-500">비밀번호 찾기</Text>
                             </TouchableOpacity>
                             <Text className="mx-3 text-gray-400">|</Text>
-                            <TouchableOpacity>
+                            <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
                                 <Text className="text-[12.5px] font-bold text-teal-600">회원가입</Text>
                             </TouchableOpacity>
                         </View>
