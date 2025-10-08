@@ -18,7 +18,7 @@ export default function App() {
     useEffect(() => {
         (async () => {
             const token = await AsyncStorage.getItem('ACCESS_TOKEN');
-            resetTo(token ? 'Home' : 'Login');
+            resetTo(token ? 'Main' : 'Login');
         })();
     }, []);
 
