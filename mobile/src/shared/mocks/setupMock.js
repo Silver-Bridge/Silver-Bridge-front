@@ -71,6 +71,20 @@ export function setupMock(axiosInstance) {
         return [200, { accessToken: 'mock-' + id, user: { id, name, phone } }];
     });
 
+    // === 홈: 오늘의 일정 ===
+    mock.onGet('/home/today-schedule').reply(200, {
+        items: [
+            { id: 1, title: '병원예약', start: '14:00', end: '15:00', color: 'coral' },
+            { id: 2, title: '작은딸이랑 밥 약속', start: '18:30', end: '20:00', color: 'black' },
+        ],
+    });
+
+// === 어시스턴트 추천 문구 ===
+    mock.onGet('/assistant/suggestions').reply(200, {
+        suggestions: ['날씨 알려줘', '오늘의 뉴스 보기', '....'],
+    });
+
     mockInstance = mock;
     return mockInstance;
 }
+
