@@ -1,56 +1,56 @@
-// mobile/src/navigation/MainTabs.js (수정된 최종 코드)
+// mobile/src/navigation/MainTabs.js (Calendar 기능 제거)
 
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text, View } from 'react-native';
-// [수정] Vector Icons 라이브러리를 임포트합니다. (예: Ionicons 사용)
-import Ionicons from 'react-native-vector-icons/Ionicons';
+// import Ionicons from 'react-native-vector-icons/Ionicons'; // Vector Icons는 사용하지 않으므로 제거 가능
 
 import HomeScreen from '../screens/HomeScreen';
 import DetailsScreen from '../screens/DetailsScreen';
 import MyPageScreen from '../screens/mypage/MyPageScreen';
-import CalendarScreen from '../screens/calendar/CalendarScreen';
+// 🚨 CalendarScreen 임포트 제거됨
 
 const Tab = createBottomTabNavigator();
 
-// [수정된 부분] 탭 바 아이콘 컴포넌트 (Vector Icons 사용)
+// 탭 바 아이콘 컴포넌트
 const Icon = ({ name, focused }) => {
-    // 탭 이름에 따라 사용할 아이콘 이름을 매핑합니다. (플랫티콘과 유사한 디자인의 아이콘 사용)
-    let iconName;
-    let label;
+    const iconColor = focused ? 'text-teal-600' : 'text-gray-500';
 
-    switch (name) {
-        case 'Home':
-            iconName = focused ? 'home' : 'home-outline';
-            label = '홈';
-            break;
-        case 'Chat':
-            iconName = focused ? 'chatbox' : 'chatbox-outline';
-            label = '챗봇';
-            break;
-        case 'Calendar':
-            iconName = focused ? 'calendar' : 'calendar-outline';
-            label = '캘린더';
-            break;
-        case 'MyPage':
-            iconName = focused ? 'person' : 'person-outline';
-            label = '마이페이지';
-            break;
-        default:
-            iconName = 'alert-circle-outline';
-            label = '';
-    }
+    const getIcon = () => {
+        switch (name) {
+            case 'Home':
+                return '🏠';
+            // 🚨 Calendar 아이콘 제거됨
+            case 'Chat':
+                return '💬';
+            case 'MyPage':
+                return '👤';
+            default:
+                return '';
+        }
+    };
+
+    const getLabel = () => {
+        switch (name) {
+            case 'Home':
+                return '홈';
+            // 🚨 Calendar 라벨 제거됨
+            case 'Chat':
+                return '챗봇';
+            case 'MyPage':
+                return '마이페이지';
+            default:
+                return '';
+        }
+    };
 
     return (
         <View className="items-center">
-            <Ionicons
-                name={iconName}
-                size={24}
-                // NativeWind 클래스를 사용하여 색상 동적 변경
-                className={`${focused ? 'text-teal-600' : 'text-gray-500'}`}
-            />
-            <Text className={`text-xs ${focused ? 'text-teal-600' : 'text-gray-500'}`}>
-                {label}
+            <Text className={`text-2xl ${iconColor}`}>
+                {getIcon()}
+            </Text>
+            <Text className={`text-xs ${iconColor}`}>
+                {getLabel()}
             </Text>
         </View>
     );
@@ -66,13 +66,15 @@ export default function MainTabs() {
                 tabBarActiveTintColor: '#0D9488',
                 tabBarInactiveTintColor: '#6B7280',
                 tabBarStyle: { height: 70 },
-                // [수정] Icon 컴포넌트로 변경
                 tabBarIcon: ({ focused }) => <Icon name={route.name} focused={focused} />,
             })}
         >
             <Tab.Screen name="Home" component={HomeScreen} />
-            <Tab.Screen name="Calendar" component={CalendarScreen} />
+
+            {/* 🚨 Calendar 탭 제거됨 */}
+
             <Tab.Screen name="Chat" component={DetailsScreen} />
+
             <Tab.Screen
                 name="MyPage"
                 component={MyPageScreen}
