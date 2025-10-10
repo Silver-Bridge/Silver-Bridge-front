@@ -1,21 +1,25 @@
-// mobile/src/app/AuthGate.js
+// src/app/AuthGate.js (수정)
+
 import React, { useState, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { View, ActivityIndicator } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useAuth } from '../shared/api/auth';
+import { resetTo } from '../navigation/navigationRef';
 
-/**
- * AuthGate
- * - 자식(children)을 함수로 받아 { authed } 전달
- * - 화면이 포커스될 때마다 토큰을 재확인하여 최신 인증 상태를 반영
- */
 export default function AuthGate({ children }) {
-    const [ready, setReady] = useState(false);
-    const [authed, setAuthed] = useState(false);
+    const { isLoggedIn, isLoading } = useAuth();
+    const [isReady, setIsReady] = useState(false);
 
     const checkAuth = useCallback(async () => {
         const token = await AsyncStorage.getItem('ACCESS_TOKEN');
         setAuthed(!!token);
+
+        if (token) {
+            // [수정 지점]: 'Home' 대신 탭 네비게이터의 이름인 'Main'으로 리셋합니다.
+            resetTo('Main'); // RootNavigator에 등록된 이름은 'Main'입니다.
+        } else {
+            resetTo('Login');
+        }
         setReady(true);
     }, []);
 
@@ -26,14 +30,13 @@ export default function AuthGate({ children }) {
         }, [checkAuth])
     );
 
-    if (!ready) {
+    if (isLoading || !isReady) {
         return (
-            <View className="flex-1 items-center justify-center">
-                <ActivityIndicator />
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                <ActivityIndicator size="large" />
             </View>
         );
     }
 
-    // children을 함수로 받으면 { authed } 제공
     return typeof children === 'function' ? children({ authed }) : children;
 }
