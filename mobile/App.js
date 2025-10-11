@@ -1,34 +1,43 @@
-// mobile/App.js
+// mobile/App.js (수정된 최종 코드)
+
 import 'react-native-gesture-handler'; // 반드시 최상단
 import {setupMock} from './src/shared/mocks/setupMock'
-import AsyncStorage from '@react-native-async-storage/async-storage';
+// [수정] AsyncStorage는 이제 사용되지 않으므로 제거
+// import AsyncStorage from '@react-native-async-storage/async-storage';
 import client from './src/shared/api/client'
 setupMock(client);
 
 import './global.css'
+// [수정] useEffect와 resetTo가 이제 사용되지 않으므로 제거
 import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { navigationRef, resetTo } from './src/navigation/navigationRef';
+import { navigationRef } from './src/navigation/navigationRef'; // resetTo는 제거됨
 import RootNavigator from './src/navigation/RootNavigator';
 import { QueryProvider } from './src/app/providers/QueryProvider';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SignupProvider } from './src/screens/signup/SignupContext';
+
 
 export default function App() {
-    // 앱 시작 시 토큰 보고 초기 라우트 결정
+    // [수정] 앱 시작 시 토큰 보고 초기 라우트 결정 로직을 제거합니다.
+    /*
     useEffect(() => {
         (async () => {
             const token = await AsyncStorage.getItem('ACCESS_TOKEN');
             resetTo(token ? 'Main' : 'Login');
         })();
     }, []);
+    */
 
-  return (
-      <QueryProvider>
-        <SafeAreaProvider>
-            <NavigationContainer ref={navigationRef}>
-                <RootNavigator />
-            </NavigationContainer>
-        </SafeAreaProvider>
-      </QueryProvider>
-  );
+    return (
+        <QueryProvider>
+            <SignupProvider>
+                <SafeAreaProvider>
+                    <NavigationContainer ref={navigationRef}>
+                        <RootNavigator />
+                    </NavigationContainer>
+                </SafeAreaProvider>
+            </SignupProvider>
+        </QueryProvider>
+    );
 }
