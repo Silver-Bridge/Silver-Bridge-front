@@ -1,4 +1,5 @@
-// mobile/src/navigation/MainTabs.js (Calendar 기능 제거)
+
+// src/navigation/MainTabs.js
 
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -9,6 +10,12 @@ import HomeScreen from '../screens/HomeScreen';
 import DetailsScreen from '../screens/DetailsScreen';
 import MyPageScreen from '../screens/mypage/MyPageScreen';
 // 🚨 CalendarScreen 임포트 제거됨
+
+import ChatScreen from '../screens/ChatScreen';
+import CalendarScreen from '../screens/CalendarScreen';
+import MyPageScreen from '../screens/MyPageScreen';
+import BottomTabBar from './_parts/BottomTabBar';
+
 
 const Tab = createBottomTabNavigator();
 
@@ -60,25 +67,15 @@ const Icon = ({ name, focused }) => {
 export default function MainTabs() {
     return (
         <Tab.Navigator
-            screenOptions={({ route }) => ({
-                headerShown: false,
-                tabBarShowLabel: false,
-                tabBarActiveTintColor: '#0D9488',
-                tabBarInactiveTintColor: '#6B7280',
-                tabBarStyle: { height: 70 },
-                tabBarIcon: ({ focused }) => <Icon name={route.name} focused={focused} />,
-            })}
+
+            screenOptions={{ headerShown: false }}
+            tabBar={(props) => <BottomTabBar {...props} />}
         >
-            <Tab.Screen name="Home" component={HomeScreen} />
+            <Tab.Screen name="홈" component={HomeScreen} />
+            <Tab.Screen name="챗봇" component={ChatScreen} />
+            <Tab.Screen name="캘린더" component={CalendarScreen} />
+            <Tab.Screen name="마이페이지" component={MyPageScreen} />
 
-            {/* 🚨 Calendar 탭 제거됨 */}
-
-            <Tab.Screen name="Chat" component={DetailsScreen} />
-
-            <Tab.Screen
-                name="MyPage"
-                component={MyPageScreen}
-            />
         </Tab.Navigator>
     );
 }
