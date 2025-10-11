@@ -162,7 +162,8 @@ function Assistant({ suggestions, loading, ui }) {
     const navigation = useNavigation();
     const goChat = (preset) => {
         // 탭의 챗봇으로 이동 + 프리셋 텍스트 전달
-        navigation.navigate('챗봇', { preset });
+        navigation.navigate('챗봇', { screen: 'ChatMain', params: { preset } });
+
     };
 
     return (
