@@ -7,15 +7,13 @@ import { Text, View } from 'react-native';
 // import Ionicons from 'react-native-vector-icons/Ionicons'; // Vector Icons는 사용하지 않으므로 제거 가능
 
 import HomeScreen from '../screens/HomeScreen';
+
 import DetailsScreen from '../screens/DetailsScreen';
 import MyPageScreen from '../screens/mypage/MyPageScreen';
-// 🚨 CalendarScreen 임포트 제거됨
 
-import ChatScreen from '../screens/ChatScreen';
 import CalendarScreen from '../screens/CalendarScreen';
-import MyPageScreen from '../screens/MyPageScreen';
 import BottomTabBar from './_parts/BottomTabBar';
-
+import ChatStack from './ChatStack';
 
 const Tab = createBottomTabNavigator();
 
@@ -72,7 +70,7 @@ export default function MainTabs() {
             tabBar={(props) => <BottomTabBar {...props} />}
         >
             <Tab.Screen name="홈" component={HomeScreen} />
-            <Tab.Screen name="챗봇" component={ChatScreen} />
+            <Tab.Screen name="챗봇" component={ChatStack} />
             <Tab.Screen name="캘린더" component={CalendarScreen} />
             <Tab.Screen name="마이페이지" component={MyPageScreen} />
 
