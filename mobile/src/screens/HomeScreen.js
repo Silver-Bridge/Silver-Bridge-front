@@ -1,8 +1,12 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, useWindowDimensions } from 'react-native';
+// mobile/src/screens/HomeScreen.js
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import {
+    View, Text, ScrollView, TouchableOpacity, ActivityIndicator,
+    useWindowDimensions, RefreshControl, Alert
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getTodayScheduleApi, getAssistantSuggestionsApi } from '../shared/api/home';
 
@@ -71,15 +75,9 @@ function SectionCard({ children, className = '', ui }) {
 
 function ScheduleRow({ item, done, onToggle }) {
     const pillBg = item.color === 'black' ? 'bg-black' : 'bg-[#ff7a76]';
-
     return (
-        <View
-            className={`rounded-2xl ${pillBg} px-5 py-4 mb-3 flex-row items-center justify-between`}
-            // ✅ 완료 시 카드 전체를 살짝 흐리게
-            style={done ? { opacity: 0.55 } : undefined}
-        >
+        <View className={`rounded-2xl ${pillBg} px-5 py-4 mb-3 flex-row items-center justify-between`} style={done ? { opacity: 0.55 } : undefined}>
             <View className="flex-1 pr-3">
-                {/* ✅ 타이틀/시간에 취소선 추가 */}
                 <Text
                     className="text-white/90 text-[13px] font-semibold mb-1"
                     style={done ? { textDecorationLine: 'line-through', textDecorationColor: 'rgba(255,255,255,0.85)' } : undefined}
@@ -93,7 +91,6 @@ function ScheduleRow({ item, done, onToggle }) {
                     {item.start} ~ {item.end}
                 </Text>
             </View>
-
             <TouchableOpacity
                 onPress={() => onToggle(item.id)}
                 activeOpacity={0.85}
@@ -106,12 +103,11 @@ function ScheduleRow({ item, done, onToggle }) {
     );
 }
 
-function TodaySchedule({ items, loading, ui }) {
+function TodaySchedule({ items, loading, error, onRetry, ui }) {
     const navigation = useNavigation();
     const [doneIds, setDoneIds] = useState(new Set());
-
     const toggleDone = (id) => {
-        setDoneIds(prev => {
+        setDoneIds((prev) => {
             const next = new Set(prev);
             next.has(id) ? next.delete(id) : next.add(id);
             return next;
@@ -120,24 +116,21 @@ function TodaySchedule({ items, loading, ui }) {
 
     return (
         <SectionCard ui={ui}>
-            {/* 제목 + 달력 아이콘 → 캘린더 탭 이동 */}
             <View className="flex-row items-center justify-between mb-3">
-                <Text style={{ fontSize: ui.titleSize }} className="font-extrabold text-gray-900">
-                    오늘의 일정
-                </Text>
-                <TouchableOpacity
-                    onPress={() => navigation.navigate('캘린더')}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    className="flex-row items-center"
-                >
+                <Text style={{ fontSize: ui.titleSize }} className="font-extrabold text-gray-900">오늘의 일정</Text>
+                <TouchableOpacity onPress={() => navigation.navigate('캘린더')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                     <Ionicons name="calendar-outline" size={22} color="#111827" />
-
                 </TouchableOpacity>
             </View>
 
             {loading ? (
-                <View className="py-4 items-center">
-                    <ActivityIndicator />
+                <View className="py-4 items-center"><ActivityIndicator /></View>
+            ) : error ? (
+                <View className="py-3">
+                    <Text className="text-red-500 mb-2">{error}</Text>
+                    <TouchableOpacity onPress={onRetry} className="px-3 py-2 bg-gray-100 rounded-lg self-start">
+                        <Text className="text-gray-800">다시 시도</Text>
+                    </TouchableOpacity>
                 </View>
             ) : items.length === 0 ? (
                 <Text className="text-gray-500">오늘 일정이 없습니다.</Text>
@@ -158,40 +151,38 @@ function Chip({ label, onPress }) {
     );
 }
 
-function Assistant({ suggestions, loading, ui }) {
+function Assistant({ suggestions, loading, error, onRetry, ui }) {
     const navigation = useNavigation();
     const goChat = (preset) => {
-        // 탭의 챗봇으로 이동 + 프리셋 텍스트 전달
         navigation.navigate('챗봇', { screen: 'ChatMain', params: { preset } });
-
     };
-
     return (
         <SectionCard ui={ui} className="mt-3">
             <View className="flex-row items-center">
-                {/* 로고/마스코트(이미지로 교체되어 있다면 동일 컨테이너 사용) */}
                 <View style={{ width: 80, height: 80 }} className="rounded-3xl bg-[#d9eadc] items-center justify-center mr-3">
                     <Text style={{ fontSize: 32 }}>🌱</Text>
                 </View>
-
-                {/* 말풍선 + 꼬리 */}
                 <View className="flex-1">
                     <View className="relative self-start bg-gray-100 rounded-2xl px-4 py-3">
-                        <View
-                            style={{
-                                position: 'absolute', left: -8, top: 14, width: 0, height: 0,
-                                borderTopWidth: 8, borderBottomWidth: 8, borderRightWidth: 10,
-                                borderTopColor: 'transparent', borderBottomColor: 'transparent', borderRightColor: '#f3f4f6',
-                            }}
-                        />
+                        <View style={{
+                            position: 'absolute', left: -8, top: 14, width: 0, height: 0,
+                            borderTopWidth: 8, borderBottomWidth: 8, borderRightWidth: 10,
+                            borderTopColor: 'transparent', borderBottomColor: 'transparent', borderRightColor: '#f3f4f6',
+                        }} />
                         <Text className="text-[16px] text-gray-800 font-semibold">무엇을 도와드릴까요?</Text>
                     </View>
                 </View>
             </View>
 
-            {/* 칩 */}
             {loading ? (
                 <View className="py-3 items-center"><ActivityIndicator /></View>
+            ) : error ? (
+                <View className="py-3">
+                    <Text className="text-red-500 mb-2">{error}</Text>
+                    <TouchableOpacity onPress={onRetry} className="px-3 py-2 bg-gray-100 rounded-lg self-start">
+                        <Text className="text-gray-800">다시 시도</Text>
+                    </TouchableOpacity>
+                </View>
             ) : (
                 <View className="flex-row flex-wrap mt-3 -mr-2">
                     {suggestions.map((s, i) => (
@@ -200,7 +191,6 @@ function Assistant({ suggestions, loading, ui }) {
                 </View>
             )}
 
-            {/* 입력바 클릭 → 챗봇 탭 */}
             <TouchableOpacity
                 onPress={() => goChat('')}
                 activeOpacity={0.85}
@@ -222,49 +212,85 @@ export default function HomeScreen() {
     const [suggestions, setSuggestions] = useState([]);
     const [loadingSch, setLoadingSch] = useState(true);
     const [loadingSug, setLoadingSug] = useState(true);
+    const [errSch, setErrSch] = useState('');
+    const [errSug, setErrSug] = useState('');
+    const [refreshing, setRefreshing] = useState(false);
 
-    useEffect(() => {
-        (async () => {
-            const raw = await AsyncStorage.getItem('USER_INFO');
-            if (raw) setName(JSON.parse(raw).name || '');
-        })();
-    }, []);
-
+    // USER_INFO에서 이름
     useEffect(() => {
         (async () => {
             try {
-                setLoadingSch(true);
-                const items = await getTodayScheduleApi();
-                setSchedules(items);
-            } finally {
-                setLoadingSch(false);
-            }
+                const raw = await AsyncStorage.getItem('USER_INFO');
+                if (raw) setName(JSON.parse(raw)?.name || '');
+            } catch {}
         })();
     }, []);
 
-    useEffect(() => {
-        (async () => {
-            try {
-                setLoadingSug(true);
-                const list = await getAssistantSuggestionsApi();
-                setSuggestions(list);
-            } finally {
-                setLoadingSug(false);
-            }
-        })();
+    const fetchSchedules = useCallback(async () => {
+        setErrSch('');
+        setLoadingSch(true);
+        try {
+            const items = await getTodayScheduleApi();
+            setSchedules(items);
+        } catch (e) {
+            setErrSch(e?.__normalized?.message || e?.message || '일정 로드 실패');
+        } finally {
+            setLoadingSch(false);
+        }
     }, []);
+
+    const fetchSuggestions = useCallback(async () => {
+        setErrSug('');
+        setLoadingSug(true);
+        try {
+            const list = await getAssistantSuggestionsApi();
+            setSuggestions(list);
+        } catch (e) {
+            setErrSug(e?.__normalized?.message || e?.message || '추천 로드 실패');
+        } finally {
+            setLoadingSug(false);
+        }
+    }, []);
+
+    // 최초 로드
+    useEffect(() => {
+        fetchSchedules();
+        fetchSuggestions();
+    }, [fetchSchedules, fetchSuggestions]);
+
+    // 화면 포커스 시 재조회(앱 복귀/탭 전환 등)
+    useFocusEffect(
+        useCallback(() => {
+            fetchSchedules();
+        }, [fetchSchedules])
+    );
+
+    // Pull-to-refresh
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        await Promise.all([fetchSchedules(), fetchSuggestions()]);
+        setRefreshing(false);
+    }, [fetchSchedules, fetchSuggestions]);
 
     return (
         <SafeAreaView edges={['top']} className="flex-1 bg-[#f5f6f8]">
-            <ScrollView className="flex-1" contentContainerStyle={{ paddingTop: ui.pageTop, paddingBottom: ui.pageBottom }} showsVerticalScrollIndicator={false}>
+            <ScrollView
+                className="flex-1"
+                contentContainerStyle={{ paddingTop: ui.pageTop, paddingBottom: ui.pageBottom }}
+                showsVerticalScrollIndicator={false}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+            >
                 <TopBar name={name} ui={ui} />
-                <TodaySchedule items={schedules} loading={loadingSch} ui={ui} />
+                <TodaySchedule items={schedules} loading={loadingSch} error={errSch} onRetry={fetchSchedules} ui={ui} />
 
-                <View style={{ maxWidth: ui.maxW, marginTop: ui.cardGap, marginBottom: ui.cardGap, alignSelf: 'center' }} className="w-full px-4">
+                <View
+                    style={{ maxWidth: ui.maxW, marginTop: ui.cardGap, marginBottom: ui.cardGap, alignSelf: 'center' }}
+                    className="w-full px-4"
+                >
                     <View className="h-2 rounded-full bg-gray-100" />
                 </View>
 
-                <Assistant suggestions={suggestions} loading={loadingSug} ui={ui} />
+                <Assistant suggestions={suggestions} loading={loadingSug} error={errSug} onRetry={fetchSuggestions} ui={ui} />
             </ScrollView>
         </SafeAreaView>
     );
