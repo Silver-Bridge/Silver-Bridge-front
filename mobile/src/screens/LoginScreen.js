@@ -1,64 +1,79 @@
 // src/screens/LoginScreen.tsx
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-    View,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
+    View, Text, TextInput, TouchableOpacity,
+    KeyboardAvoidingView, Platform, ScrollView, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CommonActions } from '@react-navigation/native';
-import { loginApi } from '../shared/api/auth';
+import { login as loginApi } from '../shared/api/auth';
+
+// 전화번호 하이픈 포함 포맷
+function formatPhoneKR(digits) {
+    const d = (digits || '').replace(/\D/g, '');
+    if (d.length <= 3) return d;
+    if (d.length <= 7) return `${d.slice(0, 3)}-${d.slice(3)}`;
+    return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7, 11)}`;
+}
+
+// 루트 네비게이터에 등록된 탭 컨테이너의 "정확한" 이름으로 바꿔주세요.
+// 예) RootNavigator: <Stack.Screen name="Home" component={MainTabs} />
+const TARGET_ROOT = 'Main'; // 또는 'MainTabs' / 'Main' 등 실제 이름
 
 export default function LoginScreen({ navigation }) {
     const [phone, setPhone] = useState('');
     const [password, setPassword] = useState('');
     const [submitting, setSubmitting] = useState(false);
 
+    const phoneDigits = useMemo(() => (phone || '').replace(/\D/g, ''), [phone]);
+    const canSubmit = phoneDigits.length >= 10 && password.length >= 8 && !submitting;
+
     const onLogin = async () => {
-        if (submitting) return;
+        if (!canSubmit) {
+            Alert.alert('확인', '전화번호와 비밀번호를 확인해 주세요.');
+            return;
+        }
         try {
             setSubmitting(true);
 
-            // 실제 API 사용 시:
-            // const res = await loginApi({ phone, password });
-            // await AsyncStorage.setItem('ACCESS_TOKEN', res.accessToken);
-            // await AsyncStorage.setItem('USER_INFO', JSON.stringify(res.user));
+            // 1) 서버 로그인 (헤더에서 토큰 추출)
+            const phoneNumber = formatPhoneKR(phoneDigits); // 백엔드 규격: 010-XXXX-XXXX
+            const res = await loginApi({ phoneNumber, password });
+            const { accessToken, refreshToken } = res?.tokens || {};
+            if (!accessToken) throw new Error('로그인 토큰을 받지 못했습니다.');
 
-            // 데모용
-            await AsyncStorage.setItem('ACCESS_TOKEN', 'demo-token');
-            await AsyncStorage.setItem('USER_INFO', JSON.stringify({ phone }));
+            // 2) 로컬 저장
+            await AsyncStorage.multiSet([
+                ['ACCESS_TOKEN', accessToken],
+                ['REFRESH_TOKEN', refreshToken || ''],
+                ['USER_INFO', JSON.stringify({ phoneNumber })],
+            ]);
 
+            // 3) 루트로 리셋
             navigation.dispatch(
                 CommonActions.reset({
                     index: 0,
-                    routes: [{ name: 'Main', params: { screen: 'Home' } }],
+                    routes: [{ name: TARGET_ROOT }], // ← RootNavigator에서 실제 이름과 정확히 일치해야 함
                 })
             );
         } catch (e) {
-            console.log('로그인 실패:', e?.response?.data ?? e?.message);
+            const msg =
+                e?.response?.data?.message ||
+                e?.__normalized?.message ||
+                e?.message ||
+                '로그인에 실패했습니다.';
+            Alert.alert('로그인 실패', msg);
             setSubmitting(false);
         }
     };
 
     return (
         <SafeAreaView className="flex-1 bg-white">
-            <KeyboardAvoidingView
-                className="flex-1"
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            >
-                <ScrollView
-                    className="flex-1"
-                    keyboardShouldPersistTaps="handled"
-                    contentContainerStyle={{ flexGrow: 1 }}
-                >
-                    {/* 바깥 여백 넉넉히, 위쪽도 붙지 않게 */}
+            <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+                <ScrollView className="flex-1" keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1 }}>
                     <View className="flex-1 px-6 pt-16 pb-8">
-                        {/* 타이틀 블록 */}
+                        {/* 타이틀 */}
                         <View className="mb-10">
                             <Text className="text-[34px] leading-[42px] font-extrabold text-gray-900 mb-3">
                                 안녕하세요{'\n'}실버브릿지입니다!
@@ -68,8 +83,7 @@ export default function LoginScreen({ navigation }) {
                             </Text>
                         </View>
 
-                        {/* 입력/버튼 섹션: 간격 확실히 */}
-                        {/* 휴대폰 번호 입력 */}
+                        {/* 전화번호 */}
                         <TextInput
                             className="border border-gray-300 rounded-2xl px-4 py-4 text-[15px] text-gray-900"
                             placeholder="휴대폰 번호 입력"
@@ -83,7 +97,7 @@ export default function LoginScreen({ navigation }) {
                             autoCorrect={false}
                         />
 
-                        {/* 비밀번호 입력 (위 간격) */}
+                        {/* 비밀번호 */}
                         <TextInput
                             className="mt-4 border border-gray-300 rounded-2xl px-4 py-4 text-[15px] text-gray-900"
                             placeholder="비밀번호 입력"
@@ -93,12 +107,10 @@ export default function LoginScreen({ navigation }) {
                             secureTextEntry
                         />
 
-                        {/* 로그인 버튼 (더 넉넉히 띄우기) */}
+                        {/* 로그인 버튼 */}
                         <TouchableOpacity
-                            className={`mt-5 rounded-2xl py-4 items-center ${
-                                submitting ? 'bg-teal-400' : 'bg-teal-600'
-                            }`}
-                            disabled={submitting}
+                            className={`mt-5 rounded-2xl py-4 items-center ${canSubmit ? 'bg-teal-600' : 'bg-teal-400'}`}
+                            disabled={!canSubmit}
                             onPress={onLogin}
                             activeOpacity={0.85}
                         >
@@ -107,36 +119,27 @@ export default function LoginScreen({ navigation }) {
                             </Text>
                         </TouchableOpacity>
 
-                        {/* 링크 섹션 */}
+                        {/* 링크 */}
                         <View className="mt-5 mb-6 flex-row items-center justify-center">
-                            <TouchableOpacity>
-                                <Text className="text-[12.5px] text-gray-500">아이디 찾기</Text>
-                            </TouchableOpacity>
+                            <TouchableOpacity><Text className="text-[12.5px] text-gray-500">아이디 찾기</Text></TouchableOpacity>
                             <Text className="mx-3 text-gray-400">|</Text>
-                            <TouchableOpacity>
-                                <Text className="text-[12.5px] text-gray-500">비밀번호 찾기</Text>
-                            </TouchableOpacity>
+                            <TouchableOpacity><Text className="text-[12.5px] text-gray-500">비밀번호 찾기</Text></TouchableOpacity>
                             <Text className="mx-3 text-gray-400">|</Text>
                             <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
                                 <Text className="text-[12.5px] font-bold text-teal-600">회원가입</Text>
                             </TouchableOpacity>
                         </View>
 
-                        {/* 구분 라인 */}
+                        {/* SNS 구분선 */}
                         <View className="my-8 flex-row items-center">
                             <View className="flex-1 h-px bg-gray-200" />
                             <Text className="mx-3 text-xs text-gray-400">SNS 계정으로 로그인</Text>
                             <View className="flex-1 h-px bg-gray-200" />
                         </View>
 
-                        {/* 카카오 로그인 버튼 */}
-                        <TouchableOpacity
-                            className="mt-2 rounded-2xl py-4 items-center bg-[#FEE500]"
-                            activeOpacity={0.9}
-                        >
-                            <Text className="text-base font-extrabold text-[#3C1E1E]">
-                                카카오톡으로 로그인
-                            </Text>
+                        {/* 카카오 */}
+                        <TouchableOpacity className="mt-2 rounded-2xl py-4 items-center bg-[#FEE500]" activeOpacity={0.9}>
+                            <Text className="text-base font-extrabold text-[#3C1E1E]">카카오톡으로 로그인</Text>
                         </TouchableOpacity>
                     </View>
                 </ScrollView>

@@ -1,75 +1,88 @@
 // src/screens/signup/SignupVerifyScreen.js
-import React, { useEffect, useState } from 'react';
-import {
-    View,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    Modal,
-    FlatList,
-    Alert,
-} from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, Modal, FlatList, Alert } from 'react-native';
 import Header from './_parts/Header';
 import PrimaryButton from './_parts/PrimaryButton';
 import { useSignup } from './SignupContext';
-import { getCarriersApi } from '../../shared/api/meta';
-import { sendCodeApi, verifyCodeApi } from '../../shared/api/auth';
+import { sendCodeApi, verifyCodeApi } from '../../shared/api/auth'; // ✅ carriers API import 제거
+
+const CARRIERS = ['SKT', 'KT', 'LG U+', '알뜰폰'];
+
+// 010-1234-5678
+function formatPhoneKR(digits) {
+    const d = (digits || '').replace(/\D/g, '');
+    if (d.length <= 3) return d;
+    if (d.length <= 7) return `${d.slice(0, 3)}-${d.slice(3)}`;
+    return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7, 11)}`;
+}
 
 export default function SignupVerifyScreen({ navigation }) {
     const { data, setData } = useSignup();
 
     const [carrierOpen, setCarrierOpen] = useState(false);
-    const [carriers, setCarriers] = useState([]);
+    const [carriers, setCarriers] = useState(CARRIERS);
     const [requested, setRequested] = useState(false);
     const [code, setCode] = useState('');
-    const [verified, setVerified] = useState(false);
+    const [localVerified, setLocalVerified] = useState(false);
 
+    // 입력은 숫자만 유지
     const phoneDigits = (data.phone || '').replace(/\D/g, '');
+    // 서버 전송용(하이픈 포함)
+    const phoneHyphen = useMemo(() => formatPhoneKR(phoneDigits), [phoneDigits]);
 
+    // 로컬 상수 사용
     useEffect(() => {
-        (async () => {
-            try {
-                const list = await getCarriersApi();
-                setCarriers(list);
-            } catch (e) {
-                console.log('carriers load error:', e?.response?.data ?? e?.message);
-            }
-        })();
+        setCarriers(CARRIERS);
     }, []);
 
+    // 번호 변경 시 상태 초기화
+    useEffect(() => {
+        setRequested(false);
+        setLocalVerified(false);
+        setData((s) => ({ ...s, verified: false }));
+        setCode('');
+    }, [phoneDigits, setData]);
+
+    // 인증번호 발송: @RequestParam phoneNumber (하이픈 포함)
     const requestCode = async () => {
         if (!/^\d{10,11}$/.test(phoneDigits)) {
             return Alert.alert('확인', '휴대폰 번호를 정확히 입력해 주세요.');
         }
         try {
-            const res = await sendCodeApi(phoneDigits);
+            await sendCodeApi(phoneHyphen);
             setRequested(true);
-            // 개발 편의: 발급된 코드 표시 (릴리스에서 제거 권장)
-            if (res?.devCode) Alert.alert('개발용 코드', res.devCode);
+            Alert.alert('안내', `인증번호가 발송되었습니다.\n(${phoneHyphen}, 유효 5분)`);
         } catch (e) {
-            Alert.alert('오류', e?.response?.data?.message || e?.message);
+            const msg = e?.__normalized?.message || e?.response?.data?.message || e?.message || '인증번호 발송에 실패했습니다.';
+            Alert.alert('오류', msg);
         }
     };
 
+    // 인증번호 검증: @RequestParam phoneNumber, code
     const verifyCode = async () => {
-        if (!code) return;
+        if (!/^\d{6}$/.test(code)) {
+            return Alert.alert('확인', '인증번호 6자리를 입력해 주세요.');
+        }
         try {
-            await verifyCodeApi({ phone: phoneDigits, code });
-            setVerified(true);
+            await verifyCodeApi({ phoneNumber: phoneHyphen, code });
+            setLocalVerified(true);
+            setData((s) => ({ ...s, verified: true }));
             Alert.alert('인증 완료', '휴대폰 인증이 완료되었습니다.');
         } catch (e) {
-            setVerified(false);
-            Alert.alert('실패', e?.response?.data?.message || e?.message);
+            setLocalVerified(false);
+            setData((s) => ({ ...s, verified: false }));
+            const msg = e?.__normalized?.message || e?.response?.data?.message || e?.message || '인증번호가 일치하지 않거나 만료되었습니다.';
+            Alert.alert('실패', msg);
         }
     };
 
+    // ✅ 통신사 선택은 UI 전용 → 다음 버튼 조건에서 제거
     const canNext =
         data.name.trim().length >= 2 &&
-        /^\d{6}$/.test(data.rrnFront) &&
-        /^\d{1}$/.test(data.rrnBack1) &&
-        !!data.carrier &&
+        /^\d{6}$/.test(data.rrnFront || '') &&
+        /^\d{1}$/.test(data.rrnBack1 || '') &&
         phoneDigits.length >= 10 &&
-        verified; // ✅ 인증 완료 시에만 다음 가능
+        (data.verified || localVerified);
 
     return (
         <View className="flex-1 bg-white">
@@ -94,9 +107,7 @@ export default function SignupVerifyScreen({ navigation }) {
                         keyboardType="number-pad"
                         maxLength={6}
                         value={data.rrnFront}
-                        onChangeText={(t) =>
-                            setData((s) => ({ ...s, rrnFront: t.replace(/\D/g, '') }))
-                        }
+                        onChangeText={(t) => setData((s) => ({ ...s, rrnFront: t.replace(/\D/g, '') }))}
                     />
                     <Text className="self-center text-xl mr-3">-</Text>
                     <TextInput
@@ -106,24 +117,18 @@ export default function SignupVerifyScreen({ navigation }) {
                         keyboardType="number-pad"
                         maxLength={1}
                         value={data.rrnBack1}
-                        onChangeText={(t) =>
-                            setData((s) => ({ ...s, rrnBack1: t.replace(/\D/g, '') }))
-                        }
+                        onChangeText={(t) => setData((s) => ({ ...s, rrnBack1: t.replace(/\D/g, '') }))}
                     />
                     <Text className="self-center ml-2 text-xl">•••••</Text>
                 </View>
 
-                {/* 통신사 선택 */}
+                {/* 통신사 선택 (UI 전용) */}
                 <TouchableOpacity
                     className="mt-4 border border-gray-300 rounded-xl px-4 py-4 flex-row justify-between"
                     onPress={() => setCarrierOpen(true)}
                     activeOpacity={0.85}
                 >
-                    <Text
-                        className={`text-[15px] ${
-                            data.carrier ? 'text-gray-900' : 'text-gray-400'
-                        }`}
-                    >
+                    <Text className={`text-[15px] ${data.carrier ? 'text-gray-900' : 'text-gray-400'}`}>
                         {data.carrier || '통신사'}
                     </Text>
                     <Text className="text-gray-500">▾</Text>
@@ -140,16 +145,13 @@ export default function SignupVerifyScreen({ navigation }) {
                             inputMode="tel"
                             autoComplete="tel"
                             value={data.phone}
-                            onChangeText={(t) =>
-                                setData((s) => ({ ...s, phone: t.replace(/\D/g, '') }))
-                            }
+                            onChangeText={(t) => setData((s) => ({ ...s, phone: t.replace(/\D/g, '') }))}
                         />
                         <TouchableOpacity
-                            className={`px-3 rounded-lg items-center justify-center ${
-                                requested ? 'bg-gray-300' : 'bg-red-400'
-                            }`}
+                            className={`px-3 rounded-lg items-center justify-center ${requested ? 'bg-gray-300' : 'bg-red-400'}`}
                             onPress={requestCode}
                             disabled={requested}
+                            activeOpacity={0.85}
                         >
                             <Text className="text-white text-[12px] font-bold">
                                 {requested ? '요청됨' : '인증번호받기'}
@@ -170,13 +172,12 @@ export default function SignupVerifyScreen({ navigation }) {
                                 onChangeText={setCode}
                             />
                             <TouchableOpacity
-                                className={`px-3 rounded-lg items-center justify-center ${
-                                    verified ? 'bg-green-500' : 'bg-teal-600'
-                                }`}
+                                className={`px-3 rounded-lg items-center justify-center ${localVerified ? 'bg-green-500' : 'bg-teal-600'}`}
                                 onPress={verifyCode}
+                                activeOpacity={0.85}
                             >
                                 <Text className="text-white text-[12px] font-bold">
-                                    {verified ? '완료' : '확인'}
+                                    {localVerified ? '완료' : '확인'}
                                 </Text>
                             </TouchableOpacity>
                         </View>
@@ -191,23 +192,15 @@ export default function SignupVerifyScreen({ navigation }) {
                 disabled={!canNext}
             />
 
-            {/* 통신사 모달(액션시트) */}
-            <Modal
-                animationType="slide"
-                transparent
-                visible={carrierOpen}
-                onRequestClose={() => setCarrierOpen(false)}
-            >
-                <TouchableOpacity
-                    className="flex-1 bg-black/30 justify-end"
-                    activeOpacity={1}
-                    onPress={() => setCarrierOpen(false)}
-                >
+            {/* 통신사 모달 */}
+            <Modal animationType="slide" transparent visible={carrierOpen} onRequestClose={() => setCarrierOpen(false)}>
+                <TouchableOpacity className="flex-1 bg-black/30 justify-end" activeOpacity={1} onPress={() => setCarrierOpen(false)}>
                     <View className="bg-white rounded-t-2xl p-4">
                         <Text className="text-base font-semibold mb-3">통신사</Text>
                         <FlatList
                             data={carriers}
                             keyExtractor={(it, idx) => `${it}-${idx}`}
+                            ItemSeparatorComponent={() => <View className="h-px bg-gray-100" />}
                             renderItem={({ item }) => (
                                 <TouchableOpacity
                                     className="py-3 flex-row items-center justify-between"
@@ -217,13 +210,8 @@ export default function SignupVerifyScreen({ navigation }) {
                                     }}
                                 >
                                     <Text className="text-[16px] text-gray-900">{item}</Text>
-                                    {data.carrier === item ? (
-                                        <Text className="text-teal-600">✓</Text>
-                                    ) : null}
+                                    {data.carrier === item ? <Text className="text-teal-600">✓</Text> : null}
                                 </TouchableOpacity>
-                            )}
-                            ItemSeparatorComponent={() => (
-                                <View className="h-px bg-gray-100" />
                             )}
                         />
                     </View>

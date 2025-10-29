@@ -1,38 +1,36 @@
-import React, { createContext, useContext, useState } from 'react';
-/*
+// mobile/src/screens/signup/SignupContext.js
+import React, { createContext, useContext, useState, useCallback } from 'react';
+
+// 초기값
 const defaultState = {
-    userType: 'USER',  // 'GUARDIAN' | 'USER'
+    userType: 'USER',    // 'GUARDIAN' | 'USER'
     name: '',
     rrnFront: '',
     rrnBack1: '',
-    carrier: '',
-    phone: '',
+    phone: '',           // 입력/저장은 숫자만
     password: '',
     region: '',
-    fontScale: 50,     // 0~100
-}; */
-
-const defaultState = {
-    // 마이페이지 테스트를 위한 핵심 목 데이터
-    userType: 'USER',
-    name: '김철수', // 이름 목 데이터
-    rrnFront: '990101',
-    rrnBack1: '1',
-    carrier: 'SKT',
-    phone: '010-9999-8888', // 전화번호 목 데이터
-    password: 'testpassword123',
-    region: '경상도', // 지역 초기값 목 데이터
-    fontScale: 75,     // 글자 크기 목 데이터 (75%로 설정)
+    fontScale: 50,       // 0~100
+    verified: false,     // ⬅️ SMS 인증 완료 여부
 };
-
 
 const Ctx = createContext(null);
 
+//컨텍스트를 앱 트리(회원가입 스택) 최상단에 감싸주는 컴포넌트
 export function SignupProvider({ children }) {
     const [data, setData] = useState(defaultState);
-    return <Ctx.Provider value={{ data, setData }}>{children}</Ctx.Provider>;
+
+    const resetSignup = useCallback(() => setData(defaultState), []);
+
+    return (
+        <Ctx.Provider value={{ data, setData, resetSignup }}>
+            {children}
+        </Ctx.Provider>
+    );
 }
 
+
+// 어디서든 읽고 / 수정 가능
 export function useSignup() {
     const ctx = useContext(Ctx);
     if (!ctx) throw new Error('useSignup must be used within SignupProvider');
