@@ -9,6 +9,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getTodayScheduleApi, getAssistantSuggestionsApi } from '../shared/api/home';
+import {runAppHealthCheck} from "../shared/utils/healthcheck";
 
 function useResponsiveGaps() {
     const { width } = useWindowDimensions();
@@ -226,6 +227,9 @@ export default function HomeScreen() {
         })();
     }, []);
 
+    useEffect(() => {
+        runAppHealthCheck();
+    }, []);
     const fetchSchedules = useCallback(async () => {
         setErrSch('');
         setLoadingSch(true);
@@ -252,18 +256,27 @@ export default function HomeScreen() {
         }
     }, []);
 
-    // 최초 로드
-    useEffect(() => {
-        fetchSchedules();
-        fetchSuggestions();
-    }, [fetchSchedules, fetchSuggestions]);
+    // // 최초 로드
+    // useEffect(() => {
+    //     fetchSchedules();
+    //     fetchSuggestions();
+    // }, [fetchSchedules, fetchSuggestions]);
+    //
+    // // 화면 포커스 시 재조회(앱 복귀/탭 전환 등)
+    // useFocusEffect(
+    //     useCallback(() => {
+    //         fetchSchedules();
+    //     }, [fetchSchedules])
+    // );
 
-    // 화면 포커스 시 재조회(앱 복귀/탭 전환 등)
-    useFocusEffect(
-        useCallback(() => {
-            fetchSchedules();
-        }, [fetchSchedules])
-    );
+
+// 대신 즉시 로딩 off + 빈 데이터
+    useEffect(() => {
+        setLoadingSch(false);
+        setLoadingSug(false);
+        setSchedules([]);
+        setSuggestions([]);
+    }, []);
 
     // Pull-to-refresh
     const onRefresh = useCallback(async () => {

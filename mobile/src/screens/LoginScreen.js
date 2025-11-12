@@ -1,25 +1,32 @@
-// src/screens/LoginScreen.tsx
+// src/screens/LoginScreen.js
 import React, { useMemo, useState } from 'react';
 import {
     View, Text, TextInput, TouchableOpacity,
     KeyboardAvoidingView, Platform, ScrollView, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CommonActions } from '@react-navigation/native';
 import { login as loginApi } from '../shared/api/auth';
+import {
+    setAuth, setUser, ensureUserFromToken, normalizeUser, parseJwt,
+} from '../shared/auth/token';
 
-// 전화번호 하이픈 포함 포맷
+// 전화번호 하이픈 포함 포맷 (010-XXXX-XXXX / 02-XXX-XXXX 대응)
 function formatPhoneKR(digits) {
     const d = (digits || '').replace(/\D/g, '');
+    if (d.startsWith('02')) {
+        if (d.length <= 2) return d;
+        if (d.length <= 5) return `${d.slice(0, 2)}-${d.slice(2)}`;
+        if (d.length <= 9) return `${d.slice(0, 2)}-${d.slice(2, 5)}-${d.slice(5)}`;
+        return `${d.slice(0, 2)}-${d.slice(2, 6)}-${d.slice(6, 10)}`;
+    }
     if (d.length <= 3) return d;
     if (d.length <= 7) return `${d.slice(0, 3)}-${d.slice(3)}`;
     return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7, 11)}`;
 }
 
-// 루트 네비게이터에 등록된 탭 컨테이너의 "정확한" 이름으로 바꿔주세요.
-// 예) RootNavigator: <Stack.Screen name="Home" component={MainTabs} />
-const TARGET_ROOT = 'Main'; // 또는 'MainTabs' / 'Main' 등 실제 이름
+// ⚠️ RootNavigator의 실제 이름으로 교체 (예: 'Home' 또는 'MainTabs')
+const TARGET_ROOT = 'Main';
 
 export default function LoginScreen({ navigation }) {
     const [phone, setPhone] = useState('');
@@ -37,24 +44,35 @@ export default function LoginScreen({ navigation }) {
         try {
             setSubmitting(true);
 
-            // 1) 서버 로그인 (헤더에서 토큰 추출)
-            const phoneNumber = formatPhoneKR(phoneDigits); // 백엔드 규격: 010-XXXX-XXXX
+            // 1) 로그인 호출
+            const phoneNumber = formatPhoneKR(phoneDigits);
             const res = await loginApi({ phoneNumber, password });
-            const { accessToken, refreshToken } = res?.tokens || {};
-            if (!accessToken) throw new Error('로그인 토큰을 받지 못했습니다.');
 
-            // 2) 로컬 저장
-            await AsyncStorage.multiSet([
-                ['ACCESS_TOKEN', accessToken],
-                ['REFRESH_TOKEN', refreshToken || ''],
-                ['USER_INFO', JSON.stringify({ phoneNumber })],
-            ]);
+            // 2) 토큰 저장 (응답 헤더/바디에서 가져온 값)
+            const accessToken = res?.tokens?.accessToken;
+            const refreshToken = res?.tokens?.refreshToken;
+            await setAuth({ accessToken, refreshToken });
 
-            // 3) 루트로 리셋
+            // 3) USER_INFO 저장
+            //   1순위: 응답 user
+            //   2순위: /users/me (loginApi 내부에서 이미 시도했다면 스킵)
+            //   3순위: access 토큰 클레임으로 최소 복구
+            let user = res?.user;
+            if (!user && accessToken && accessToken.split('.').length === 3) {
+                const claims = parseJwt(accessToken);
+                user = {
+                    id: claims?.id ?? claims?.userId ?? claims?.uid ?? claims?.sub,
+                    name: claims?.name ?? '사용자',
+                    phoneNumber,
+                };
+            }
+            await setUser(normalizeUser(user || { name: '사용자', phoneNumber }));
+
+            // 4) 루트 리셋
             navigation.dispatch(
                 CommonActions.reset({
                     index: 0,
-                    routes: [{ name: TARGET_ROOT }], // ← RootNavigator에서 실제 이름과 정확히 일치해야 함
+                    routes: [{ name: TARGET_ROOT }],
                 })
             );
         } catch (e) {
@@ -65,7 +83,13 @@ export default function LoginScreen({ navigation }) {
                 '로그인에 실패했습니다.';
             Alert.alert('로그인 실패', msg);
             setSubmitting(false);
+            return;
         }
+
+        // (옵션) 저장 보정: USER_INFO.id가 없으면 토큰에서 복구
+        try {
+            await ensureUserFromToken();
+        } catch {}
     };
 
     return (

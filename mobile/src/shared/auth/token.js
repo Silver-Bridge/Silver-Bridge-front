@@ -1,29 +1,32 @@
-// mobile/src/shared/auth/token.js
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const KEY_ACCESS = 'ACCESS_TOKEN';
 const KEY_REFRESH = 'REFRESH_TOKEN';
 const KEY_USER   = 'USER_INFO';
 
-/**
- * 로그인/회원가입 성공 시 토큰+유저 저장
- * 사용 예:
- *   await setAuth({ accessToken, refreshToken, user });
- */
+// 문자열 "null"/"undefined"까지 방지
+const BAD = new Set([null, undefined, '', 'null', 'undefined']);
+
 export async function setAuth({ accessToken, refreshToken, user }) {
     const ops = [];
-    if (accessToken) ops.push(AsyncStorage.setItem(KEY_ACCESS, accessToken));
-    if (refreshToken) ops.push(AsyncStorage.setItem(KEY_REFRESH, refreshToken));
+    if (!BAD.has(accessToken)) ops.push(AsyncStorage.setItem(KEY_ACCESS, accessToken));
+    if (!BAD.has(refreshToken)) ops.push(AsyncStorage.setItem(KEY_REFRESH, refreshToken));
     if (user) ops.push(AsyncStorage.setItem(KEY_USER, JSON.stringify(user)));
-    await Promise.all(ops);
+    if (ops.length) await Promise.all(ops);
 }
 
 export async function getAccessToken() {
-    return AsyncStorage.getItem(KEY_ACCESS);
+    const t = await AsyncStorage.getItem(KEY_ACCESS);
+    return BAD.has(t) ? null : t;
 }
 
 export async function getRefreshToken() {
-    return AsyncStorage.getItem(KEY_REFRESH);
+    const t = await AsyncStorage.getItem(KEY_REFRESH);
+    return BAD.has(t) ? null : t;
+}
+
+export async function clearAuth() {
+    await AsyncStorage.multiRemove([KEY_ACCESS, KEY_REFRESH, KEY_USER]);
 }
 
 export async function getUser() {
@@ -37,13 +40,48 @@ export async function setUser(user) {
     await AsyncStorage.setItem(KEY_USER, JSON.stringify(user));
 }
 
-/** 로그아웃 시 전체 정리 */
-export async function clearAuth() {
-    await AsyncStorage.multiRemove([KEY_ACCESS, KEY_REFRESH, KEY_USER]);
+// --- 유틸 ---
+
+export function parseJwt(token) {
+    try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const json = decodeURIComponent(
+            atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
+        );
+        return JSON.parse(json);
+    } catch { return {}; }
 }
 
-/** 간단한 로그인 여부 체크 */
-export async function isLoggedIn() {
-    const token = await getAccessToken();
-    return !!token;
+export function normalizeUser(u) {
+    if (!u) return null;
+    return {
+        id: u.id ?? u.userId ?? u.uid ?? u.sub,   // ★ 어떤 키여도 id로 통일
+        name: u.name ?? u.username ?? '',
+        phoneNumber: u.phoneNumber ?? u.phone ?? '',
+        ...u,
+    };
+}
+
+export async function getUserId() {
+    const u = await getUser();
+    return u?.id ?? u?.userId ?? u?.uid ?? u?.sub ?? null;
+}
+
+// USER_INFO에 id가 없으면 access 토큰의 클레임으로 복구
+export async function ensureUserFromToken() {
+    const raw = await AsyncStorage.getItem(KEY_USER);
+    let user = raw ? JSON.parse(raw) : null;
+
+    if (!user?.id) {
+        const at = await getAccessToken();
+        if (at && at.split('.').length === 3) {
+            const claims = parseJwt(at);
+            user = normalizeUser({ ...(user ?? {}), ...claims });
+            if (user?.id) {
+                await AsyncStorage.setItem(KEY_USER, JSON.stringify(user));
+            }
+        }
+    }
+    return user;
 }
