@@ -1,20 +1,15 @@
 // mobile/src/shared/api/auth.js
 import client from './client';
+import { setAuth, setUser, normalizeUser, parseJwt } from '../auth/token';
 
-// ✅ API_BASE_URL이 이미 "/api" 또는 "/api/v1" 까지 포함한다고 가정
-//    예: API_BASE_URL=http://10.0.2.2:8080/api/v1
 const prefix = '/users';
 
-// 회원가입
-export async function join(payload) {
-    // payload: { name, phoneNumber, password, regionId(or region), userType?... }
-    const res = await client.post(`${prefix}/join`, payload);
-    return typeof res?.data === 'string' ? res.data : res?.data;
+export async function getMe() {
+    const res = await client.get(`${prefix}/me`); // 서버에서 사용자 프로필 반환
+    return res?.data;
 }
 
-// 로그인 (헤더에서 토큰 추출)
 export async function login({ phoneNumber, password }) {
-    // transformResponse는 굳이 필요 없습니다. headers는 항상 접근 가능해요.
     const res = await client.post(`${prefix}/login`, { phoneNumber, password });
 
     const h = res?.headers || {};
@@ -22,26 +17,35 @@ export async function login({ phoneNumber, password }) {
     const refresh = h['refresh-token'] || h['Refresh-Token'];
     const access = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined;
 
+    // 1) 토큰 저장
+    await setAuth({ accessToken: access, refreshToken: refresh });
+
+    // 2) 유저 저장: 응답 user → /users/me → 토큰 클레임
+    let user = res?.data?.user;
+
+    if (!user) {
+        try {
+            user = await getMe();              // ★ 여기서 DB의 이름(서범주) 획득
+        } catch (e) {
+            if (access && access.split('.').length === 3) {
+                const c = parseJwt(access);
+                user = {
+                    id: c.id ?? c.userId ?? c.uid ?? c.sub,
+                    name: c.name ?? '사용자',
+                    phoneNumber,
+                };
+            } else {
+                user = { name: '사용자', phoneNumber };
+            }
+        }
+    }
+
+    await setUser(normalizeUser(user));
+    console.log('[LOGIN] saved USER_INFO =', normalizeUser(user));
+
     return {
         message: typeof res?.data === 'string' ? res.data : '로그인 성공',
         tokens: { accessToken: access, refreshToken: refresh },
+        user,
     };
-}
-
-// 로그아웃
-export async function logout({ refreshToken }) {
-    const res = await client.post(`${prefix}/logout`, { refreshToken });
-    return typeof res?.data === 'string' ? res.data : res?.data;
-}
-
-// 인증번호 발송:  /sms/send?phoneNumber=010-1234-5678
-export async function sendCodeApi(phoneNumber) {
-    const res = await client.post('/sms/send', null, { params: { phoneNumber } });
-    return typeof res?.data === 'string' ? res.data : res?.data;
-}
-
-// 인증번호 확인:  /sms/verify?phoneNumber=...&code=123456
-export async function verifyCodeApi({ phoneNumber, code }) {
-    const res = await client.post('/sms/verify', null, { params: { phoneNumber, code } });
-    return typeof res?.data === 'string' ? res.data : res?.data;
 }
