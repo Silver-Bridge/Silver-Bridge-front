@@ -49,3 +49,26 @@ export async function login({ phoneNumber, password }) {
         user,
     };
 }
+// 회원가입
+export async function join(payload) {
+    // payload: { name, phoneNumber, password, regionId(or region), userType?... }
+    const res = await client.post(`${prefix}/join`, payload);
+    return typeof res?.data === 'string' ? res.data : res?.data;
+}
+
+// 로그아웃
+export async function logout({ refreshToken }) {
+    const res = await client.post(`${prefix}/logout`, { refreshToken });
+    return typeof res?.data === 'string' ? res.data : res?.data;
+}
+
+// 인증번호 발송:  /sms/send?phoneNumber=010-1234-5678
+export async function sendCodeApi(phoneNumber) {
+    const res = await client.post('/sms/send', null, { params: { phoneNumber } });
+    return typeof res?.data === 'string' ? res.data : res?.data;
+}
+// 인증번호 확인:  /sms/verify?phoneNumber=...&code=123456
+export async function verifyCodeApi({ phoneNumber, code }) {
+    const res = await client.post('/sms/verify', null, { params: { phoneNumber, code } });
+    return typeof res?.data === 'string' ? res.data : res?.data;
+}
