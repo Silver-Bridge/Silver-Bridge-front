@@ -1,189 +1,201 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+// /src/screens/ChatScreen.js
+import React, {
+    useCallback,
+    useEffect,
+    useRef,
+    useState,
+    useLayoutEffect,
+    useMemo,
+} from 'react';
 import {
-    View, Text, TextInput, TouchableOpacity,
-    KeyboardAvoidingView, Platform, FlatList, Keyboard
+    View,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    KeyboardAvoidingView,
+    Platform,
+    FlatList,
+    Keyboard,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRoute, useNavigation } from '@react-navigation/native';
-import store from '../shared/chat/storeFactory';
-import { now } from '../shared/chat/types';
+import { sendText, getHistory } from '../shared/api/chatbot';
 
 const SUGGESTIONS = ['날씨정보', '일정확인 및 등록', '복지'];
-
-function mockBotReply(text) {
-    const t = (text || '').toLowerCase();
-    if (t.includes('날씨')) return '오늘 서울은 비 소식이 있어요. 우산 챙기면 좋아요 ☔️';
-    if (t.includes('일정')) return '새 일정을 등록할까요? 예: “내일 2시 병원 예약”';
-    if (t.includes('복지')) return '가까운 복지관과 신청 가능한 서비스 목록을 알려드릴게요.';
-    return '요청하신 내용을 정리하고 있어요. 잠시만 기다려 주세요!';
-}
-
-function TopRow({ onPressHistory }) {
-    return (
-        <View className="px-4 pt-1 pb-2">
-            <View className="flex-row items-center">
-                <View className="w-8 h-8 rounded-full bg-black/80 mr-2" />
-                <TouchableOpacity className="flex-row items-center" onPress={onPressHistory}>
-                    <Text className="text-[13px] text-gray-800 mr-1">내 스토리</Text>
-                    <Ionicons name="chevron-down" size={14} color="#374151" />
-                </TouchableOpacity>
-            </View>
-        </View>
-    );
-}
 
 export default function ChatScreen() {
     const route = useRoute();
     const navigation = useNavigation();
-    const threadId = route.params?.threadId || 'main';
-    const title = route.params?.title || '내 스토리';
+    const insets = useSafeAreaInsets();
 
+    // history 화면에서 들어오면 sessionId가 넘어오고, 새 대화면 undefined
+    const initialSessionId =
+        route.params?.sessionId ?? route.params?.serverSessionId ?? null;
+    const title = route.params?.title || '내 대화방';
+    const regionCode = route.params?.regionCode || 'std';
+
+    const [sessionId, setSessionId] = useState(initialSessionId);
     const [input, setInput] = useState('');
-    const [messages, setMessages] = useState([]); // inverted
-    const [isTyping, setIsTyping] = useState(false);
-    const [sending, setSending] = useState(false); // 전송중 락
+    const [messages, setMessages] = useState([]); // FlatList + inverted라 최신 메시지가 배열 앞에 오게 관리
+    const [sending, setSending] = useState(false);
+
     const inputRef = useRef(null);
     const listRef = useRef(null);
-    const lastPressRef = useRef(0); // 빠른 연타 방지
+    const lastPressRef = useRef(0);
 
-    // 초기 로드
+    // 헤더에 "대화기록" 버튼
+    useLayoutEffect(() => {
+        navigation.setOptions({
+            headerTitle: title,
+            headerRight: () => (
+                <TouchableOpacity
+                    onPress={() => navigation.navigate('대화기록')}
+                    style={{ paddingHorizontal: 12, paddingVertical: 6 }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                    <Text
+                        style={{
+                            fontSize: 14,
+                            color: '#0f766e',
+                            fontWeight: '700',
+                        }}
+                    >
+                        대화기록
+                    </Text>
+                </TouchableOpacity>
+            ),
+        });
+    }, [navigation, title]);
+
+    // 기존 세션 진입 시 히스토리 로드
     useEffect(() => {
+        if (!initialSessionId) return;
         (async () => {
             try {
-                console.log('[init] ensureThread start');
-                await store.local.ensureThread(threadId, title);
-
-                console.log('[init] loadMessages local');
-                const local = await store.local.loadMessages(threadId);
-                setMessages((local || []).slice().reverse());
-
-                if (store.sync) {
-                    console.log('[init] sync start');
-                    try {
-                        await store.sync();
-                    } catch (e) {
-                        // 서버 미연동/모크 단계에서의 경고는 메시지만 출력
-                        console.warn('[init] sync error:', e?.message ?? String(e));
-                    }
-                    console.log('[init] sync done → reload local');
-                    const after = await store.local.loadMessages(threadId);
-                    setMessages((after || []).slice().reverse());
-                }
-                console.log('[init] done');
+                const history = await getHistory(initialSessionId); // [{role, content}]
+                const mapped = mapHistoryToMessages(history, initialSessionId);
+                setMessages(mapped);
             } catch (e) {
-                // ❗️스택 출력 금지 (Metro가 InternalBytecode.js를 열려다 ENOENT)
-                console.warn('chat init error:', e?.message ?? String(e));
+                console.warn('history load error:', e?.message ?? String(e));
             }
         })();
-    }, [threadId, title]);
+    }, [initialSessionId]);
 
-    // preset 자동 입력
+    // 홈 추천칩에서 preset 넘어오면 자동 입력
     useEffect(() => {
         const preset = route.params?.preset;
         if (typeof preset === 'string') {
             setInput(preset);
-            setTimeout(() => inputRef.current?.focus(), 0);
+            setTimeout(() => inputRef.current?.focus?.(), 0);
         }
     }, [route.params?.preset]);
 
     const scrollToEnd = useCallback(() => {
         requestAnimationFrame(() =>
-            listRef.current?.scrollToOffset({ offset: 0, animated: true })
+            listRef.current?.scrollToOffset({ offset: 0, animated: true }),
         );
     }, []);
 
-    // 전송 가능 여부 (빈문자/전송중 차단)
-    const canSend = useMemo(() => {
-        return !sending && input.trim().length > 0;
-    }, [sending, input]);
+    const canSend = useMemo(
+        () => !sending && input.trim().length > 0,
+        [sending, input],
+    );
 
-    // 낙관적 전송 → 서버 확정 치환
-    const send = useCallback(
+    // 서버 history 응답 → 화면용 메시지 배열로 변환 (inverted에 맞게 최신이 앞쪽)
+    const mapHistoryToMessages = (history, sid) => {
+        if (!Array.isArray(history)) return [];
+        const mapped = history.map((m, idx) => {
+            const lRole = (m.role || '').toLowerCase(); // "user"|"assistant"|"system"
+            const role = lRole === 'user' ? 'me' : 'bot';
+            return {
+                id: `${sid ?? 'ns'}-${idx}`,
+                role,
+                text: m.content,
+                status: 'sent',
+            };
+        });
+        // history는 오래된→최신 순일 가능성이 크므로 뒤집어서 최신이 배열 첫번째
+        return mapped.reverse();
+    };
+
+    const onSend = useCallback(
         async (textArg) => {
             const nowMs = Date.now();
-            if (nowMs - lastPressRef.current < 350) return; // 더블탭 방지
+            if (nowMs - lastPressRef.current < 350) return;
             lastPressRef.current = nowMs;
 
-            const contentRaw = typeof textArg === 'string' ? textArg : input;
-            const content = (contentRaw || '').trim();
-            if (!content) return; // 빈 입력 차단
-            if (sending) return; // 전송 중 락
+            const raw = typeof textArg === 'string' ? textArg : input;
+            const content = (raw || '').trim();
+            if (!content || sending) return;
 
             setSending(true);
             Keyboard.dismiss();
 
-            const tempId = `tmp-${now()}`;
-            const temp = {
-                tempId,
-                threadId,
+            // 1) 내 메시지 먼저 화면에 반영 (임시)
+            const tempId = `tmp-${nowMs}`;
+            const tempMessage = {
+                id: tempId,
                 role: 'me',
                 text: content,
-                createdAt: now(),
                 status: 'sending',
             };
+            setMessages((prev) => [tempMessage, ...(prev || [])]);
+            setInput('');
+            scrollToEnd();
 
             try {
-                // 1) UI 즉시 추가
-                setMessages((prev) => [temp, ...(prev || [])]);
-                setInput('');
+                // 2) 서버 전송
+                const res = await sendText({
+                    text: content,
+                    sessionId,
+                    regionCode,
+                });
+                // res: { sessionId, replyText, history: [...] }
 
-                // 2) 로컬 저장 (실패해도 UI 진행)
-                store.local.appendMessage(threadId, temp).catch((e) =>
-                    console.warn('local append failed:', e?.message ?? String(e))
-                );
-
-                // 3) 서버/목 전송
-                let fixed = null;
-                try {
-                    const confirmed = await store.sendMessage(threadId, content);
-                    // confirmed가 undefined/null이면 안전치환
-                    fixed = {
-                        id: confirmed?.id ?? `m-${now()}`,
-                        threadId,
-                        role: confirmed?.role ?? 'me',
-                        text: confirmed?.text ?? content,
-                        createdAt: confirmed?.createdAt ?? now(),
-                        status: 'sent',
-                    };
-                } catch (e) {
-                    console.warn('[send] server fail → mark error:', e?.message ?? String(e));
-                    setMessages((prev) =>
-                        (prev || []).map((m) => (m.tempId === tempId ? { ...m, status: 'error' } : m))
-                    );
-                    store.local.markError(threadId, tempId).catch(() => {});
-                    return;
+                const newSessionId = res.sessionId;
+                if (!sessionId && newSessionId) {
+                    setSessionId(newSessionId);
                 }
 
-                // 4) 치환
-                setMessages((prev) =>
-                    (prev || []).map((m) => (m.tempId === tempId ? fixed : m))
-                );
-                store.local.replaceTemp(threadId, tempId, fixed).catch(() => {});
-
-                // 5) 봇 응답(목)
-                setIsTyping(true);
-                setTimeout(() => {
-                    const bot = {
-                        id: `b-${now()}`,
-                        threadId,
-                        role: 'bot',
-                        text: mockBotReply(content),
-                        createdAt: now(),
+                // 3) 서버 기준 history로 전체 대화 덮어쓰기
+                if (Array.isArray(res.history)) {
+                    const mapped = mapHistoryToMessages(res.history, newSessionId);
+                    setMessages(mapped);
+                    scrollToEnd();
+                } else {
+                    // history가 없을 일은 거의 없겠지만, 최소한 내 메시지/봇응답만 다시 세팅
+                    const myMsg = {
+                        id: `u-${nowMs}`,
+                        role: 'me',
+                        text: content,
                         status: 'sent',
                     };
-                    setMessages((prev) => [bot, ...(prev || [])]);
-                    setIsTyping(false);
-                    store.local.appendMessage(threadId, bot).catch(() => {});
+                    const botMsg = res.replyText
+                        ? {
+                            id: `b-${nowMs}`,
+                            role: 'bot',
+                            text: res.replyText,
+                            status: 'sent',
+                        }
+                        : null;
+                    const arr = botMsg ? [botMsg, myMsg] : [myMsg];
+                    setMessages(arr);
                     scrollToEnd();
-                }, 600);
+                }
             } catch (e) {
-                console.warn('[send] fatal error:', e?.message ?? String(e));
+                console.warn('[send] server fail:', e?.message ?? String(e));
+                // 실패 시, 해당 메시지에 error 표시
+                setMessages((prev) =>
+                    (prev || []).map((m) =>
+                        m.id === tempId ? { ...m, status: 'error' } : m,
+                    ),
+                );
             } finally {
-                setSending(false); // 실패/성공 모두 풀어주기
+                setSending(false);
             }
         },
-        [input, sending, threadId, scrollToEnd]
+        [input, sending, sessionId, regionCode, scrollToEnd],
     );
 
     const renderItem = ({ item }) => {
@@ -192,18 +204,32 @@ export default function ChatScreen() {
             ? 'bg-teal-600 rounded-2xl rounded-tr-none'
             : 'bg-gray-200 rounded-2xl rounded-tl-none';
         const showError = item.status === 'error';
+
         return (
-            <View className={`w-full mb-2 ${isMe ? 'items-end' : 'items-start'}`}>
+            <View
+                className={`w-full mb-2 ${isMe ? 'items-end' : 'items-start'}`}
+            >
                 <View
                     style={{ maxWidth: '80%' }}
-                    className={`px-4 py-3 ${bubbleCls} ${showError ? 'opacity-60' : ''}`}
+                    className={`px-4 py-3 ${bubbleCls} ${
+                        showError ? 'opacity-60' : ''
+                    }`}
                 >
-                    <Text className={`${isMe ? 'text-white' : 'text-gray-800'} leading-5`}>
+                    <Text
+                        className={`${
+                            isMe ? 'text-white' : 'text-gray-800'
+                        } leading-5`}
+                    >
                         {item.text}
                     </Text>
                     {showError && (
-                        <TouchableOpacity onPress={() => send(item.text)} className="mt-2 self-end">
-                            <Text className="text-[11px] text-white/90 underline">다시 보내기</Text>
+                        <TouchableOpacity
+                            onPress={() => onSend(item.text)}
+                            className="mt-2 self-end"
+                        >
+                            <Text className="text-[11px] text-white/90 underline">
+                                다시 보내기
+                            </Text>
                         </TouchableOpacity>
                     )}
                 </View>
@@ -212,42 +238,41 @@ export default function ChatScreen() {
     };
 
     return (
-        <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-[#f7f8f7]">
+        // ✅ bottom safe-area는 직접 처리할 거라 top만 적용
+        <SafeAreaView
+            edges={['top']}
+            className="flex-1 bg-[#f7f8f7]"
+        >
             <KeyboardAvoidingView
                 className="flex-1"
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                keyboardVerticalOffset={
+                    Platform.OS === 'ios'
+                        ? (insets.top || 0) + 20 // 너무 올라가면 50~70 사이에서 조절
+                        : 0
+                }
             >
-                <TopRow onPressHistory={() => navigation.navigate('대화기록')} />
-
                 <View className="flex-1">
                     {messages.length === 0 ? (
                         <View className="flex-1 items-center justify-center px-6">
                             <Text className="text-[16px] font-semibold text-gray-800 text-center">
-                                초록나무님, 무엇을 도와드릴까요
+                                무엇을 도와드릴까요
                             </Text>
                         </View>
                     ) : (
                         <FlatList
                             ref={listRef}
                             data={messages}
-                            keyExtractor={(it) => it.id || it.tempId}
+                            keyExtractor={(it) => it.id}
                             renderItem={renderItem}
                             inverted
-                            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 8 }}
+                            contentContainerStyle={{
+                                paddingHorizontal: 16,
+                                paddingBottom: 8,
+                            }}
                             keyboardShouldPersistTaps="handled"
-                            keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
-                            ListFooterComponent={
-                                isTyping ? (
-                                    <View className="py-2">
-                                        <View className="self-start bg-gray-200 rounded-2xl px-4 py-2">
-                                            <View className="flex-row space-x-1">
-                                                <View className="w-1.5 h-1.5 rounded-full bg-gray-500 opacity-70" />
-                                                <View className="w-1.5 h-1.5 rounded-full bg-gray-500 opacity-70" />
-                                                <View className="w-1.5 h-1.5 rounded-full bg-gray-500 opacity-70" />
-                                            </View>
-                                        </View>
-                                    </View>
-                                ) : null
+                            keyboardDismissMode={
+                                Platform.OS === 'ios' ? 'interactive' : 'on-drag'
                             }
                             showsVerticalScrollIndicator={false}
                         />
@@ -255,33 +280,43 @@ export default function ChatScreen() {
                 </View>
 
                 {/* 추천 칩 */}
-                <View className="px-4 pb-2">
+                <View className="px-4 pb-1">
                     <View className="flex-row flex-wrap -mr-2">
                         {SUGGESTIONS.map((s) => (
                             <TouchableOpacity
                                 key={s}
                                 onPress={() => {
                                     setInput(s);
-                                    // 프레임 하나 넘겨서 state 반영 후 전송 (UI 일관성)
-                                    requestAnimationFrame(() => send(s));
+                                    requestAnimationFrame(() => onSend(s));
                                 }}
                                 className="mr-2 mb-2 px-3 py-2 rounded-2xl bg-[#eaf2e6]"
                                 activeOpacity={0.85}
                             >
-                                <Text className="text-[12.5px] text-gray-800">{s}</Text>
+                                <Text className="text-[12.5px] text-gray-800">
+                                    {s}
+                                </Text>
                             </TouchableOpacity>
                         ))}
                     </View>
                 </View>
 
-                {/* 입력 바 */}
-                <View className="px-4 pb-3">
+                {/* ✅ 입력 바: 아래 여백을 직접 insets.bottom 기반으로 살짝만 */}
+                <View
+                    style={{
+                        paddingBottom: Math.max(insets.bottom - 10, 6), // 탭바와의 간격 6~10px 정도
+                    }}
+                    className="px-4"
+                >
                     <View className="flex-row items-center bg-gray-100 rounded-2xl px-2 py-2">
                         <TouchableOpacity
                             className="w-10 h-10 mr-1 items-center justify-center"
                             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         >
-                            <MaterialCommunityIcons name="sticker-emoji" size={20} color="#6b7280" />
+                            <MaterialCommunityIcons
+                                name="sticker-emoji"
+                                size={20}
+                                color="#6b7280"
+                            />
                         </TouchableOpacity>
 
                         <TextInput
@@ -292,12 +327,12 @@ export default function ChatScreen() {
                             value={input}
                             onChangeText={setInput}
                             returnKeyType="send"
-                            onSubmitEditing={() => canSend && send()}
+                            onSubmitEditing={() => canSend && onSend()}
                             blurOnSubmit={Platform.OS === 'ios'}
                         />
 
                         <TouchableOpacity
-                            onPress={() => send()}
+                            onPress={() => onSend()}
                             className={`w-10 h-10 rounded-full items-center justify-center ${
                                 canSend ? 'bg-teal-600' : 'bg-gray-300'
                             }`}

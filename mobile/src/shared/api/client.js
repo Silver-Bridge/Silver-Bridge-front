@@ -37,37 +37,40 @@ const client = axios.create({
     timeout: 15000,
 });
 
-// 요청: ACCESS_TOKEN 자동 첨부 (화이트리스트 제외 + 유효 JWT만)
+// 요청: ACCESS_TOKEN 자동 첨부 + 진단 로그
 client.interceptors.request.use(async (config) => {
-    const url = (config.baseURL || '') + (config.url || '');
-    const path = config.url || '';
-
-    const skipAuth = isWhitelisted(path) || isWhitelisted(url);
-    if (!skipAuth) {
-        const access = await getAccessToken();
-        if (isJwt(access)) {
-            config.headers = config.headers ?? {};
-            config.headers.Authorization = `Bearer ${access}`;
-        }
+    const access = await AsyncStorage.getItem('ACCESS_TOKEN');
+    if (access) {
+        config.headers = config.headers || {};
+        config.headers.Authorization = `Bearer ${access}`;
     }
-
-    console.log('[API REQ]', url, config.method, 'Auth? =>', !!config.headers?.Authorization, config.headers?.Authorization?.slice?.(0, 25));
+    const full = `${config.baseURL || ''}${config.url || ''}`;
+    console.log('[API REQ]', full, config.method, 'Auth? =>', !!access, access ? `Bearer ${access.slice(0,16)}` : undefined, config.params || config.data);
     return config;
 });
 
-// 에러 로깅
 client.interceptors.response.use(
     (res) => res,
-    (error) => {
+    async (error) => {
+        const status = error?.response?.status;
+        const msg =
+            error?.response?.data?.message ||
+            error?.message ||
+            '네트워크 오류가 발생했습니다.';
+        error.__normalized = { status, message: msg };
         console.log('[API ERROR]', {
             url: `${error?.config?.baseURL||''}${error?.config?.url||''}`,
             method: error?.config?.method,
-            status: error?.response?.status,
-            message: error?.message,
+            status,
+            message: msg,
         });
+        if (status === 401) {
+            await AsyncStorage.multiRemove(['ACCESS_TOKEN', 'REFRESH_TOKEN', 'USER_INFO']);
+        }
         return Promise.reject(error);
     }
 );
+
 
 // 에러 표준화 + 401 처리 + 헤더 토큰 갱신 저장
 client.interceptors.response.use(

@@ -1,16 +1,26 @@
 // mobile/src/screens/HomeScreen.js
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import {
-    View, Text, ScrollView, TouchableOpacity, ActivityIndicator,
-    useWindowDimensions, RefreshControl, Alert
-} from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator,
+    useWindowDimensions, RefreshControl, Alert, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getTodayScheduleApi, getAssistantSuggestionsApi } from '../shared/api/home';
-import {runAppHealthCheck} from "../shared/utils/healthcheck";
 
+// 시간 파싱(ISO & "YYYY-MM-DD HH:mm:ss" 모두 대응)
+function parseDateLoose(s) {
+    if (!s) return null;
+    let t = String(s).trim().replace(' ', 'T');
+    t = t.replace(/\.\d{6}$/, (m) => '.' + m.slice(1, 4)); // .123456 -> .123
+    const d = new Date(t);
+    return isNaN(d.getTime()) ? null : d;
+}
+function fmtHHmm(d) {
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    return `${hh}:${mm}`;
+}
 function useResponsiveGaps() {
     const { width } = useWindowDimensions();
     const compact = width < 380;
@@ -40,7 +50,10 @@ function TopBar({ name, ui }) {
         <View style={{ paddingHorizontal: ui.topbarPx, marginBottom: bottomSpace }} className="w-full self-center pb-1">
             <View className="flex-row items-center justify-between">
                 <View className="flex-row items-center">
-                    <View style={{ width: avatar, height: avatar }} className="rounded-full bg-black/80 mr-3" />
+                    {/* 로고 이미지 */}
+                    <View style={{ width: avatar, height: avatar, borderRadius: avatar/2, backgroundColor: '#fff', alignItems:'center', justifyContent:'center', marginRight:12, borderWidth:1, borderColor:'#e5e7eb' }}>
+                        <Image source={require('../../assets/logo.png')} style={{ width: avatar*0.8, height: avatar*0.8 }} resizeMode="contain" />
+                    </View>
                     <Text style={{ fontSize: nameFs }} className="font-semibold text-gray-900" numberOfLines={1}>
                         {name ? `${name}님` : '사용자님'}
                     </Text>
@@ -74,35 +87,71 @@ function SectionCard({ children, className = '', ui }) {
     );
 }
 
+
 function ScheduleRow({ item, done, onToggle }) {
-    const pillBg = item.color === 'black' ? 'bg-black' : 'bg-[#ff7a76]';
+    // 포인트 컬러 (기본 틸)
+    const accent = (item?.color && item.color !== 'black') ? item.color : '#10b981';
+
+    const startD = parseDateLoose(item.start);
+    const endD   = parseDateLoose(item.end);
+    const timeText = (startD && endD)
+        ? `${fmtHHmm(startD)} ~ ${fmtHHmm(endD)}`
+        : `${item.start || ''}${item.end ? ` ~ ${item.end}` : ''}`;
+
     return (
-        <View className={`rounded-2xl ${pillBg} px-5 py-4 mb-3 flex-row items-center justify-between`} style={done ? { opacity: 0.55 } : undefined}>
-            <View className="flex-1 pr-3">
-                <Text
-                    className="text-white/90 text-[13px] font-semibold mb-1"
-                    style={done ? { textDecorationLine: 'line-through', textDecorationColor: 'rgba(255,255,255,0.85)' } : undefined}
+        <View
+            className="rounded-2xl bg-white border border-gray-200 px-5 py-4 mb-3"
+            style={done ? { opacity: 0.55 } : undefined}
+        >
+            <View className="flex-row items-center justify-between">
+                <View className="flex-1 pr-3">
+                    {/* 상단: 포인트 점 + 제목 */}
+                    <View className="flex-row items-center mb-1">
+                        <View
+                            style={{ backgroundColor: accent }}
+                            className="w-2 h-2 rounded-full mr-2"
+                        />
+                        <Text
+                            className="text-[13px] font-semibold text-gray-800"
+                            style={done ? { textDecorationLine: 'line-through', textDecorationColor: '#9CA3AF' } : undefined}
+                            numberOfLines={1}
+                        >
+                            {item.title}
+                        </Text>
+                    </View>
+
+                    {/* 중앙: 시간 (굵게) */}
+                    <Text
+                        className="text-[22px] font-extrabold tracking-tight text-gray-900"
+                        style={done ? { textDecorationLine: 'line-through', textDecorationColor: '#9CA3AF' } : undefined}
+                    >
+                        {timeText}
+                    </Text>
+
+                    {/* 하단: 장소 (있을 때만) */}
+                    {!!item.place && (
+                        <View className="mt-1 flex-row items-center">
+                            <Ionicons name="location-outline" size={14} color="#6B7280" />
+                            <Text className="ml-1 text-[12px] text-gray-600" numberOfLines={1}>
+                                {item.place}
+                            </Text>
+                        </View>
+                    )}
+                </View>
+
+                <TouchableOpacity
+                    onPress={() => onToggle(item.id)}
+                    activeOpacity={0.85}
+                    className="w-8 h-8 rounded-lg border border-gray-300 items-center justify-center"
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                    {item.title}
-                </Text>
-                <Text
-                    className="text-white text-[22px] font-extrabold tracking-tight"
-                    style={done ? { textDecorationLine: 'line-through', textDecorationColor: 'rgba(255,255,255,0.9)' } : undefined}
-                >
-                    {item.start} ~ {item.end}
-                </Text>
+                    <Ionicons name={done ? 'checkbox' : 'square-outline'} size={20} color="#111827" />
+                </TouchableOpacity>
             </View>
-            <TouchableOpacity
-                onPress={() => onToggle(item.id)}
-                activeOpacity={0.85}
-                className="w-8 h-8 rounded-lg bg-white/15 items-center justify-center"
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-                <Ionicons name={done ? 'checkbox' : 'square-outline'} size={22} color="#fff" />
-            </TouchableOpacity>
         </View>
     );
 }
+
 
 function TodaySchedule({ items, loading, error, onRetry, ui }) {
     const navigation = useNavigation();
@@ -209,6 +258,7 @@ function Assistant({ suggestions, loading, error, onRetry, ui }) {
 export default function HomeScreen() {
     const ui = useResponsiveGaps();
     const [name, setName] = useState('');
+    const [userId, setUserId] = useState(null);
     const [schedules, setSchedules] = useState([]);
     const [suggestions, setSuggestions] = useState([]);
     const [loadingSch, setLoadingSch] = useState(true);
@@ -217,31 +267,36 @@ export default function HomeScreen() {
     const [errSug, setErrSug] = useState('');
     const [refreshing, setRefreshing] = useState(false);
 
-    // USER_INFO에서 이름
+    // USER_INFO에서 이름/ID
     useEffect(() => {
         (async () => {
             try {
                 const raw = await AsyncStorage.getItem('USER_INFO');
-                if (raw) setName(JSON.parse(raw)?.name || '');
+                const u = raw ? JSON.parse(raw) : null;
+                setName(u?.name || '');
+                const id = u?.id ?? u?.userId ?? u?.uid ?? u?.sub ?? null;
+                setUserId(id);
+                console.log('[HC] USER_INFO =', u, '=> userId =', id);
             } catch {}
         })();
     }, []);
 
-    useEffect(() => {
-        runAppHealthCheck();
-    }, []);
     const fetchSchedules = useCallback(async () => {
         setErrSch('');
         setLoadingSch(true);
         try {
-            const items = await getTodayScheduleApi();
+            if (!userId) { setSchedules([]); return; }
+            const items = await getTodayScheduleApi(userId);
             setSchedules(items);
+            if (items.length === 0) {
+                console.log('[HC] TODAY SCHEDULE EMPTY — 서버엔 정상/데이터 없음 가능');
+            }
         } catch (e) {
             setErrSch(e?.__normalized?.message || e?.message || '일정 로드 실패');
         } finally {
             setLoadingSch(false);
         }
-    }, []);
+    }, [userId]);
 
     const fetchSuggestions = useCallback(async () => {
         setErrSug('');
@@ -256,29 +311,17 @@ export default function HomeScreen() {
         }
     }, []);
 
-    // // 최초 로드
-    // useEffect(() => {
-    //     fetchSchedules();
-    //     fetchSuggestions();
-    // }, [fetchSchedules, fetchSuggestions]);
-    //
-    // // 화면 포커스 시 재조회(앱 복귀/탭 전환 등)
-    // useFocusEffect(
-    //     useCallback(() => {
-    //         fetchSchedules();
-    //     }, [fetchSchedules])
-    // );
-
-
-// 대신 즉시 로딩 off + 빈 데이터
     useEffect(() => {
-        setLoadingSch(false);
-        setLoadingSug(false);
-        setSchedules([]);
-        setSuggestions([]);
-    }, []);
+        fetchSchedules();
+        fetchSuggestions();
+    }, [fetchSchedules, fetchSuggestions]);
 
-    // Pull-to-refresh
+    useFocusEffect(
+        useCallback(() => {
+            fetchSchedules();
+        }, [fetchSchedules])
+    );
+
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
         await Promise.all([fetchSchedules(), fetchSuggestions()]);
