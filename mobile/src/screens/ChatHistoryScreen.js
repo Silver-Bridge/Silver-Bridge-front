@@ -34,13 +34,19 @@ export default function ChatHistoryScreen() {
         }
     };
 
+    const resetToChatMain = (params) => {
+        navigation.reset({
+            index: 0,
+            routes: [{ name: 'ChatMain', params }],
+        });
+    };
     useEffect(() => {
         const unsub = navigation.addListener('focus', refresh);
         return unsub;
     }, [navigation]);
 
     const openSession = (s) => {
-        navigation.replace('ChatMain', {
+        resetToChatMain({
             sessionId: s.id,
             regionCode: s.regionCode || 'std',
             title: '내 스토리',
@@ -48,9 +54,7 @@ export default function ChatHistoryScreen() {
     };
 
     const createAndOpen = () => {
-        navigation.replace('ChatMain', {
-            title: '새 대화',
-        });
+        resetToChatMain({ title: '새 대화' });
     };
 
     const remove = (s) => {

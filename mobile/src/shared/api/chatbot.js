@@ -39,3 +39,24 @@ export async function deleteSession(sessionId) {
     const res = await client.delete(`/chatbot/session/${sessionId}`);
     return res.data; // "세션이 삭제되었습니다."
 }
+
+
+// 🎤 음성 대화 (file: m4a)
+export async function sendVoice({ uri, regionCode }) {
+    const form = new FormData();
+
+    form.append('file', {
+        uri,
+        name: `voice-${Date.now()}.m4a`,
+        type: 'audio/m4a',
+    });
+
+    if (regionCode) {
+        form.append('regionCode', regionCode); // "std", "gs", "jl"
+    }
+
+    // ⚠️ Content-Type 지정 X → axios가 boundary까지 알아서 넣게 두기
+    const res = await client.post('/chatbot/voice', form);
+    console.log('[VOICE RES]', res.data);
+    return res.data; // ChatVoiceResponse { sessionId, asrText, replyText }
+}
