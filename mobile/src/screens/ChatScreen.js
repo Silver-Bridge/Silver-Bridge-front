@@ -22,6 +22,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { sendText, getHistory } from '../shared/api/chatbot';
 
+
 const SUGGESTIONS = ['날씨정보', '일정확인 및 등록', '복지'];
 
 export default function ChatScreen() {
@@ -39,11 +40,26 @@ export default function ChatScreen() {
     const [input, setInput] = useState('');
     const [messages, setMessages] = useState([]); // FlatList + inverted라 최신 메시지가 배열 앞에 오게 관리
     const [sending, setSending] = useState(false);
+    const [recording, setRecording] = useState(null);
+    const [isRecording, setIsRecording] = useState(false);
 
     const inputRef = useRef(null);
     const listRef = useRef(null);
     const lastPressRef = useRef(0);
-
+    const speakBot = useCallback((text) => {
+        if (!text) return;
+        try {
+            // 이전 말 읽는 중이면 정지
+            Speech.stop();
+            Speech.speak(String(text), {
+                language: 'ko-KR', // 한국어
+                pitch: 1.0,
+                rate: 0.9,        // 살짝 느리게 (어르신용)
+            });
+        } catch (e) {
+            console.warn('Speech error:', e);
+        }
+    }, []);
     // 헤더에 "대화기록" 버튼
     useLayoutEffect(() => {
         navigation.setOptions({
@@ -197,6 +213,89 @@ export default function ChatScreen() {
         },
         [input, sending, sessionId, regionCode, scrollToEnd],
     );
+    // 🎤 녹음 시작
+    const startRecording = useCallback(async () => {
+        try {
+            const perm = await Audio.requestPermissionsAsync();
+            if (!perm.granted) {
+                alert('마이크 권한이 필요합니다.');
+                return;
+            }
+
+            await Audio.setAudioModeAsync({
+                allowsRecordingIOS: true,
+                playsInSilentModeIOS: true,
+            });
+
+            const { recording } = await Audio.Recording.createAsync(
+                Audio.RecordingOptionsPresets.HIGH_QUALITY // 기본적으로 m4a로 저장됨
+            );
+
+            setRecording(recording);
+            setIsRecording(true);
+        } catch (e) {
+            console.warn('startRecording error:', e);
+            setIsRecording(false);
+        }
+    }, []);
+
+// 🎤 녹음 종료 + 서버 전송
+    const stopRecording = useCallback(async () => {
+        try {
+            if (!recording) return;
+            setIsRecording(false);
+
+            await recording.stopAndUnloadAsync();
+            const uri = recording.getURI();
+            setRecording(null);
+
+            if (!uri) {
+                console.warn('no recording uri');
+                return;
+            }
+
+            // 👉 여기서 서버로 업로드
+            const res = await sendVoice({ uri, regionCode });
+            console.log('[VOICE RES in screen]', res);
+
+            // 세션 ID 내려오면 세션 연결
+            if (res?.sessionId && !sessionId) {
+                setSessionId(res.sessionId);
+            }
+
+            const baseId = Date.now();
+
+            // 1) ASR 텍스트를 내 메시지처럼 표시
+            if (res?.asrText) {
+                const myMsg = {
+                    id: `v-me-${baseId}`,
+                    role: 'me',
+                    text: res.asrText,
+                    status: 'sent',
+                };
+                setMessages((prev) => [myMsg, ...(prev || [])]);
+            }
+
+            // 2) 챗봇 답변 표시
+            if (res?.replyText) {
+                const botMsg = {
+                    id: `v-bot-${baseId}`,
+                    role: 'bot',
+                    text: res.replyText,
+                    status: 'sent',
+                };
+                setMessages((prev) => [botMsg, ...(prev || [])]);
+
+                // ✅ 음성으로 물어본 경우에만 TTS로 읽어주기
+                speakBot(res.replyText);
+            }
+        } catch (e) {
+            console.warn('stopRecording error:', e?.message ?? String(e));
+            setIsRecording(false);
+        }
+    }, [recording, regionCode, sessionId, speakBot]);  // ✅ speakBot 추가
+
+
 
     const renderItem = ({ item }) => {
         const isMe = item.role === 'me';
@@ -279,6 +378,7 @@ export default function ChatScreen() {
                     )}
                 </View>
 
+
                 {/* 추천 칩 */}
                 <View className="px-4 pb-1">
                     <View className="flex-row flex-wrap -mr-2">
@@ -308,12 +408,14 @@ export default function ChatScreen() {
                     className="px-4"
                 >
                     <View className="flex-row items-center bg-gray-100 rounded-2xl px-2 py-2">
+                        {/* 🎤 마이크 버튼 */}
                         <TouchableOpacity
                             className="w-10 h-10 mr-1 items-center justify-center"
                             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            onPress={() => navigation.navigate('VoiceChat')}   // ⭐ 여기만 바뀜
                         >
                             <MaterialCommunityIcons
-                                name="sticker-emoji"
+                                name="microphone"
                                 size={20}
                                 color="#6b7280"
                             />

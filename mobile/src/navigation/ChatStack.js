@@ -3,6 +3,7 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import ChatScreen from '../screens/ChatScreen';
 import ChatHistoryScreen from '../screens/ChatHistoryScreen';
+import VoiceChatScreen from "../screens/VoiceChatScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -23,6 +24,11 @@ export default function ChatStack() {
                 name="대화기록"
                 component={ChatHistoryScreen}
                 options={{ title: '대화 기록' }}
+            />
+            <Stack.Screen
+                name="VoiceChat"
+                component={VoiceChatScreen}
+                options={{ title: '음성 대화' }}
             />
         </Stack.Navigator>
     );
