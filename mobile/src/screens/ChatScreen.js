@@ -135,6 +135,24 @@ export default function ChatScreen() {
         return mapped.reverse();
     };
 
+    useEffect(() => {
+        const fromRoute = route.params?.sessionId ?? null;
+        if (!fromRoute) return;
+        if (fromRoute === sessionId) return; // 이미 같은 세션이면 무시
+
+        setSessionId(fromRoute);
+
+        (async () => {
+            try {
+                const history = await getHistory(fromRoute);
+                const mapped = mapHistoryToMessages(history, fromRoute);
+                setMessages(mapped);
+            } catch (e) {
+                console.warn('history reload from route error:', e?.message ?? String(e));
+            }
+        })();
+    }, [route.params?.sessionId]);
+
     const onSend = useCallback(
         async (textArg) => {
             const nowMs = Date.now();
@@ -213,87 +231,6 @@ export default function ChatScreen() {
         },
         [input, sending, sessionId, regionCode, scrollToEnd],
     );
-    // 🎤 녹음 시작
-    const startRecording = useCallback(async () => {
-        try {
-            const perm = await Audio.requestPermissionsAsync();
-            if (!perm.granted) {
-                alert('마이크 권한이 필요합니다.');
-                return;
-            }
-
-            await Audio.setAudioModeAsync({
-                allowsRecordingIOS: true,
-                playsInSilentModeIOS: true,
-            });
-
-            const { recording } = await Audio.Recording.createAsync(
-                Audio.RecordingOptionsPresets.HIGH_QUALITY // 기본적으로 m4a로 저장됨
-            );
-
-            setRecording(recording);
-            setIsRecording(true);
-        } catch (e) {
-            console.warn('startRecording error:', e);
-            setIsRecording(false);
-        }
-    }, []);
-
-// 🎤 녹음 종료 + 서버 전송
-    const stopRecording = useCallback(async () => {
-        try {
-            if (!recording) return;
-            setIsRecording(false);
-
-            await recording.stopAndUnloadAsync();
-            const uri = recording.getURI();
-            setRecording(null);
-
-            if (!uri) {
-                console.warn('no recording uri');
-                return;
-            }
-
-            // 👉 여기서 서버로 업로드
-            const res = await sendVoice({ uri, regionCode });
-            console.log('[VOICE RES in screen]', res);
-
-            // 세션 ID 내려오면 세션 연결
-            if (res?.sessionId && !sessionId) {
-                setSessionId(res.sessionId);
-            }
-
-            const baseId = Date.now();
-
-            // 1) ASR 텍스트를 내 메시지처럼 표시
-            if (res?.asrText) {
-                const myMsg = {
-                    id: `v-me-${baseId}`,
-                    role: 'me',
-                    text: res.asrText,
-                    status: 'sent',
-                };
-                setMessages((prev) => [myMsg, ...(prev || [])]);
-            }
-
-            // 2) 챗봇 답변 표시
-            if (res?.replyText) {
-                const botMsg = {
-                    id: `v-bot-${baseId}`,
-                    role: 'bot',
-                    text: res.replyText,
-                    status: 'sent',
-                };
-                setMessages((prev) => [botMsg, ...(prev || [])]);
-
-                // ✅ 음성으로 물어본 경우에만 TTS로 읽어주기
-                speakBot(res.replyText);
-            }
-        } catch (e) {
-            console.warn('stopRecording error:', e?.message ?? String(e));
-            setIsRecording(false);
-        }
-    }, [recording, regionCode, sessionId, speakBot]);  // ✅ speakBot 추가
 
 
 
@@ -412,7 +349,12 @@ export default function ChatScreen() {
                         <TouchableOpacity
                             className="w-10 h-10 mr-1 items-center justify-center"
                             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                            onPress={() => navigation.navigate('VoiceChat')}   // ⭐ 여기만 바뀜
+                            onPress={() => {
+                                navigation.navigate('VoiceChat', {
+                                    sessionId,       // 현재 텍스트 세션 아이디 (없으면 undefined → 새 세션)
+                                    regionCode,
+                                });
+                            }}
                         >
                             <MaterialCommunityIcons
                                 name="microphone"
