@@ -72,3 +72,43 @@ export async function verifyCodeApi({ phoneNumber, code }) {
     const res = await client.post('/sms/verify', null, { params: { phoneNumber, code } });
     return typeof res?.data === 'string' ? res.data : res?.data;
 }
+
+export async function kakaoSocialLogin(kakaoAccessToken) {
+    const res = await client.post(`${prefix}/social/kakao`, null, {
+        params: { accessToken: kakaoAccessToken }, // @RequestParam("accessToken")
+    });
+
+    const body = res?.data || {};
+    const access = body.accessToken;
+    const refresh = body.refreshToken;
+    const grantType = body.grantType || 'Bearer';
+
+    if (!access) {
+        throw new Error('카카오 로그인 응답에 accessToken이 없습니다.');
+    }
+
+    await setAuth({ accessToken: access, refreshToken: refresh, grantType });
+
+    let user;
+    try {
+        user = await getMe();
+    } catch (e) {
+        if (access && access.split('.').length === 3) {
+            const c = parseJwt(access);
+            user = {
+                id: c.id ?? c.userId ?? c.uid ?? c.sub,
+                name: c.name ?? c.nickname ?? '카카오 사용자',
+            };
+        } else {
+            user = { name: '카카오 사용자' };
+        }
+    }
+
+    await setUser(normalizeUser(user));
+
+    return {
+        message: '카카오 로그인 성공',
+        tokens: { accessToken: access, refreshToken: refresh },
+        user,
+    };
+}
