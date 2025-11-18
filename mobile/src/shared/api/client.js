@@ -34,7 +34,7 @@ function isWhitelisted(pathOrUrl) {
 
 const client = axios.create({
     baseURL: API_BASE_URL?.trim(),   // 예: http://<PC_IP>:8080/api
-    timeout: 15000,
+    timeout: 60000,
 });
 
 // 요청: ACCESS_TOKEN 자동 첨부 + 진단 로그

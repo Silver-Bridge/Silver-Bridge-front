@@ -41,22 +41,29 @@ export async function deleteSession(sessionId) {
 }
 
 
-// 🎤 음성 대화 (file: m4a)
-export async function sendVoice({ uri, regionCode }) {
-    const form = new FormData();
+export async function sendVoice({ uri, regionCode = 'std', sessionId }) {
+    const formData = new FormData();
 
-    form.append('file', {
+    formData.append('file', {
         uri,
-        name: `voice-${Date.now()}.m4a`,
+        name: 'voice.m4a',
         type: 'audio/m4a',
     });
 
     if (regionCode) {
-        form.append('regionCode', regionCode); // "std", "gs", "jl"
+        formData.append('regionCode', regionCode);
+    }
+    if (sessionId != null) {
+        formData.append('sessionId', String(sessionId));
     }
 
-    // ⚠️ Content-Type 지정 X → axios가 boundary까지 알아서 넣게 두기
-    const res = await client.post('/chatbot/voice', form);
-    console.log('[VOICE RES]', res.data);
-    return res.data; // ChatVoiceResponse { sessionId, asrText, replyText }
+    const res = await client.post('/chatbot/voice', formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data',
+        },
+    });
+
+    // 지금 백엔드 응답 예시:
+    // { sessionId, history: [...], replyAudioUrl }
+    return res.data;
 }

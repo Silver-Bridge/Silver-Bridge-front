@@ -1,37 +1,32 @@
 // /src/screens/VoiceChatScreen.js
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, Animated, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, Animated } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import { sendVoice } from '../shared/api/chatbot';
-import * as Speech from 'expo-speech';
 
 export default function VoiceChatScreen() {
     const insets = useSafeAreaInsets();
 
     const [isRecording, setIsRecording] = useState(false);
     const [recording, setRecording] = useState(null);
-    const [lastReply, setLastReply] = useState(null); // 최근 답변 텍스트
+    const [lastReply, setLastReply] = useState(null);      // 최근 답변 텍스트
     const [sending, setSending] = useState(false);
+    const [voiceSessionId, setVoiceSessionId] = useState(null); // 음성 세션 유지
+    const [sound, setSound] = useState(null);              // 재생 중인 사운드 객체
 
     // ⭐ 동그라미 애니메이션 값
     const pulse = useRef(new Animated.Value(0)).current;
-    const speakReply = useCallback((text) => {
-        if (!text) return;
-        try {
-            // 혹시 이전에 읽고 있던 거 있으면 정지
-            Speech.stop();
-            Speech.speak(String(text), {
-                language: 'ko-KR', // 한국어
-                pitch: 1.0,
-                rate: 0.9,        // 어르신용으로 조금 느리게
-                volume: 1.0,      // 최대 (나머지는 기기 볼륨에서 조절)
-            });
-        } catch (e) {
-            console.warn('Speech error:', e);
-        }
-    }, []);
+
+    // 컴포넌트 언마운트 시, 사운드 정리
+    useEffect(() => {
+        return () => {
+            if (sound) {
+                sound.unloadAsync().catch(() => {});
+            }
+        };
+    }, [sound]);
 
     // 녹음 ON/OFF에 따라 애니메이션 시작/정지
     useEffect(() => {
@@ -65,6 +60,30 @@ export default function VoiceChatScreen() {
         inputRange: [0, 1],
         outputRange: [0.25, 0.0],
     });
+
+    // 🎧 서버에서 내려준 replyAudioUrl 재생
+    const playReplyAudio = useCallback(
+        async (url) => {
+            if (!url) return;
+            try {
+                // 이전 사운드 있으면 정리
+                if (sound) {
+                    await sound.unloadAsync();
+                    setSound(null);
+                }
+
+                // 사운드 생성 + 즉시 재생
+                const { sound: newSound } = await Audio.Sound.createAsync(
+                    { uri: url },
+                    { shouldPlay: true } // 바로 재생
+                );
+                setSound(newSound);
+            } catch (e) {
+                console.warn('playReplyAudio error:', e?.message ?? String(e));
+            }
+        },
+        [sound]
+    );
 
     // 🎤 녹음 시작
     const startRecording = useCallback(async () => {
@@ -109,23 +128,35 @@ export default function VoiceChatScreen() {
                 return;
             }
 
-            const res = await sendVoice({ uri, regionCode: 'std' });
+            // ✅ 현재 voiceSessionId를 함께 보냄 → 세션 유지
+            const res = await sendVoice({
+                uri,
+                regionCode: 'std',
+                sessionId: voiceSessionId,
+            });
             console.log('[VOICE RES in voice screen]', res);
 
-            const reply = res?.replyText || null;
-            setLastReply(reply);
+            // 서버가 세션 ID 내려주면, 없던 경우에만 세팅
+            if (!voiceSessionId && res?.sessionId) {
+                setVoiceSessionId(res.sessionId);
+            }
 
-            // 🔊 답변이 있으면 바로 읽어주기
-            if (reply) {
-                speakReply(reply);
+            // 최근 답변 텍스트 화면에 표시
+            const replyText = res?.replyText || null;
+            setLastReply(replyText);
+
+            // 🔊 서버에서 내려준 TTS 오디오 URL 재생
+            if (res?.replyAudioUrl) {
+                await playReplyAudio(res.replyAudioUrl);
+            } else {
+                console.log('[VOICE] replyAudioUrl이 없어, 텍스트만 표시합니다.');
             }
         } catch (e) {
             console.warn('stopRecording error:', e?.message ?? String(e));
         } finally {
             setSending(false);
         }
-    }, [recording, speakReply]);
-
+    }, [recording, voiceSessionId, playReplyAudio]);
 
     const toggleRecording = useCallback(() => {
         if (sending) return;
