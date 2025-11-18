@@ -73,22 +73,31 @@ export async function verifyCodeApi({ phoneNumber, code }) {
     return typeof res?.data === 'string' ? res.data : res?.data;
 }
 
+/**
+ * ✅ 카카오 소셜 로그인 (access_token 기반)
+ * 프론트에서 kakaoAccessToken을 받아서 서버로 전달
+ */
 export async function kakaoSocialLogin(kakaoAccessToken) {
-    const res = await client.post(`${prefix}/social/kakao`, null, {
-        params: { accessToken: kakaoAccessToken }, // @RequestParam("accessToken")
-    });
+    // 백엔드: /api/users/social/kakao?accessToken=...
+    const res = await client.post(
+        `${prefix}/social/kakao`,
+        null,
+        {
+            params: { accessToken: kakaoAccessToken },
+        },
+    );
 
-    const body = res?.data || {};
-    const access = body.accessToken;
-    const refresh = body.refreshToken;
-    const grantType = body.grantType || 'Bearer';
+    const h = res?.headers || {};
+    const authHeader = h['authorization'] || h['Authorization'];
+    const refresh = h['refresh-token'] || h['Refresh-Token'];
+    const access = authHeader?.startsWith('Bearer ')
+        ? authHeader.slice(7)
+        : undefined;
 
-    if (!access) {
-        throw new Error('카카오 로그인 응답에 accessToken이 없습니다.');
-    }
+    // 1) 토큰 저장
+    await setAuth({ accessToken: access, refreshToken: refresh });
 
-    await setAuth({ accessToken: access, refreshToken: refresh, grantType });
-
+    // 2) 유저 정보 가져오기 (/users/me → 토큰 기반)
     let user;
     try {
         user = await getMe();
@@ -97,7 +106,8 @@ export async function kakaoSocialLogin(kakaoAccessToken) {
             const c = parseJwt(access);
             user = {
                 id: c.id ?? c.userId ?? c.uid ?? c.sub,
-                name: c.name ?? c.nickname ?? '카카오 사용자',
+                name: c.name ?? '카카오 사용자',
+                phoneNumber: c.phoneNumber ?? null,
             };
         } else {
             user = { name: '카카오 사용자' };
@@ -105,6 +115,7 @@ export async function kakaoSocialLogin(kakaoAccessToken) {
     }
 
     await setUser(normalizeUser(user));
+    console.log('[KAKAO LOGIN] saved USER_INFO =', normalizeUser(user));
 
     return {
         message: '카카오 로그인 성공',

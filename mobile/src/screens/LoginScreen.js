@@ -23,17 +23,14 @@ import {
 
 // ✅ expo-auth-session 관련
 import * as WebBrowser from 'expo-web-browser';
-import {
-    makeRedirectUri,
-    useAuthRequest,
-    ResponseType,
-} from 'expo-auth-session';
+import * as AuthSession from 'expo-auth-session';
 
-// ✅ AuthSession에서 브라우저 세션 정리
+// 브라우저 세션 정리 (파일 최상단 쪽에서 한 번만)
 WebBrowser.maybeCompleteAuthSession();
 
-
-const KAKAO_REST_API_KEY = process.env.KAKAO_REST_API_KEY;
+// ⚠️ Expo의 공개 환경변수(EXPO_PUBLIC_*)를 권장
+// .env에 EXPO_PUBLIC_KAKAO_REST_API_KEY=... 로 저장했다고 가정
+const KAKAO_REST_API_KEY = process.env.EXPO_PUBLIC_KAKAO_REST_API_KEY;
 
 // 전화번호 하이픈 포함 포맷 (010-XXXX-XXXX / 02-XXX-XXXX 대응)
 function formatPhoneKR(digits) {
@@ -65,35 +62,31 @@ export default function LoginScreen({ navigation }) {
     const canSubmit = phoneDigits.length >= 10 && password.length >= 8 && !submitting;
 
     // =========================
-    // ✅ Kakao OAuth 설정 (expo-auth-session)
+    // ✅ Kakao OAuth (access_token 플로우)
     // =========================
 
-    // Kakao 인증 엔드포인트
-    const kakaoDiscovery = useMemo(
-        () => ({
-            authorizationEndpoint: 'https://kauth.kakao.com/oauth/authorize',
-        }),
-        [],
-    );
-
-    // Expo가 알아서 exp://... 형태 redirectUri 만들어줌 (Expo Go에서 사용)
+    // ⚠️ 지금은 Expo Go 기준으로 proxy 사용
+    //    배포 시에는 scheme 기반 redirectUri로 교체 예정 (TODO)
     const redirectUri = useMemo(
         () =>
-            makeRedirectUri({
-                useProxy: true, // Expo Go에서는 true로 두는 게 편함
+            AuthSession.makeRedirectUri({
+                useProxy: true, // Expo Go에서 auth.expo.io 프록시 사용
+                // 배포 시:
+                // scheme: 'silverbridge', path: 'kakao-login' 등으로 변경할 예정
             }),
         [],
     );
+    console.log('[KAKAO] redirectUri =', redirectUri);
 
-    // Kakao implicit flow (access_token 바로 받는 방식)
-    const [kakaoRequest, kakaoResponse, kakaoPromptAsync] = useAuthRequest(
-        {
-            clientId: KAKAO_REST_API_KEY,
-            responseType: ResponseType.Token, // 🔑 access_token 바로 받기
-            redirectUri,
-        },
-        kakaoDiscovery,
-    );
+    // access_token 바로 받는 implicit flow
+    const kakaoAuthUrl = useMemo(() => {
+        const params = new URLSearchParams({
+            response_type: 'token', // 🔑 access_token 직접 수신
+            client_id: KAKAO_REST_API_KEY,
+            redirect_uri: redirectUri,
+        }).toString();
+        return `https://kauth.kakao.com/oauth/authorize?${params}`;
+    }, [redirectUri]);
 
     // =========================
     // 일반 로그인
@@ -116,9 +109,6 @@ export default function LoginScreen({ navigation }) {
             await setAuth({ accessToken, refreshToken });
 
             // 3) USER_INFO 저장
-            //   1순위: 응답 user
-            //   2순위: /users/me (loginApi 내부에서 이미 시도했다면 스킵)
-            //   3순위: access 토큰 클레임으로 최소 복구
             let user = res?.user;
             if (!user && accessToken && accessToken.split('.').length === 3) {
                 const claims = parseJwt(accessToken);
@@ -148,93 +138,73 @@ export default function LoginScreen({ navigation }) {
             return;
         }
 
-        // (옵션) 저장 보정: USER_INFO.id가 없으면 토큰에서 복구
         try {
             await ensureUserFromToken();
         } catch {}
     };
 
     // =========================
-    // 카카오 로그인 버튼 핸들러
+    // 카카오 로그인 (access_token 플로우)
     // =========================
     const onKakaoLogin = async () => {
-        if (!kakaoRequest || kakaoSubmitting) return;
+        if (kakaoSubmitting) return;
 
         try {
             setKakaoSubmitting(true);
-            // 브라우저 열어서 Kakao 로그인 (결과는 kakaoResponse로 들어옴)
-            await kakaoPromptAsync({ useProxy: true });
-        } catch (e) {
-            console.log('[KAKAO LOGIN ERROR promptAsync]', e);
-            Alert.alert('오류', '카카오 로그인 도중 오류가 발생했습니다.');
-            setKakaoSubmitting(false);
-        }
-    };
 
-    // =========================
-    // 카카오 로그인 결과 처리 (redirect 후 access_token 받아서 백엔드 호출)
-    // =========================
-    useEffect(() => {
-        const handleKakaoResponse = async () => {
-            if (!kakaoResponse) return;
+            // 1) 카카오 로그인 페이지 열기
+            const result = await AuthSession.startAsync({
+                authUrl: kakaoAuthUrl,
+            });
+            console.log('[KAKAO] AuthSession result =', result);
 
-            console.log('[KAKAO] kakaoResponse =', kakaoResponse);
-
-            if (kakaoResponse.type !== 'success') {
-                if (
-                    kakaoResponse.type === 'dismiss' ||
-                    kakaoResponse.type === 'cancel'
-                ) {
+            if (result.type !== 'success') {
+                if (result.type === 'dismiss' || result.type === 'cancel') {
                     Alert.alert('취소', '카카오 로그인이 취소되었습니다.');
                 } else {
                     Alert.alert('오류', '카카오 로그인에 실패했습니다.');
                 }
-                setKakaoSubmitting(false);
                 return;
             }
 
-            // implicit flow: #access_token=... 형태로 넘어옴
-            const kakaoAccessToken = kakaoResponse.params?.access_token;
+            // 2) implicit flow: #access_token=... 형태로 전달됨
+            const kakaoAccessToken = result.params?.access_token;
             if (!kakaoAccessToken) {
                 Alert.alert('오류', '카카오 액세스 토큰을 받지 못했습니다.');
-                setKakaoSubmitting(false);
                 return;
             }
 
+            console.log('[KAKAO] accessToken =', kakaoAccessToken);
+
+            // 3) 백엔드에 accessToken 전달 → 우리 서비스용 JWT 발급
+            const res = await kakaoSocialLogin(kakaoAccessToken);
+            console.log('[KAKAO LOGIN RES]', res);
+
+            // (옵션) 토큰에서 유저정보 보정
             try {
-                console.log('[KAKAO] accessToken =', kakaoAccessToken);
+                await ensureUserFromToken();
+            } catch {}
 
-                // 백엔드 /social/kakao 호출 (accessToken 기반)
-                const res = await kakaoSocialLogin(kakaoAccessToken);
-                console.log('[KAKAO LOGIN RES]', res);
+            // 4) 메인으로 이동
+            navigation.dispatch(
+                CommonActions.reset({
+                    index: 0,
+                    routes: [{ name: TARGET_ROOT }],
+                }),
+            );
 
-                try {
-                    await ensureUserFromToken();
-                } catch {}
-
-                // 메인으로 이동
-                navigation.dispatch(
-                    CommonActions.reset({
-                        index: 0,
-                        routes: [{ name: TARGET_ROOT }],
-                    }),
-                );
-
-                Alert.alert('안내', '카카오 로그인에 성공했습니다.');
-            } catch (e) {
-                console.log('[KAKAO LOGIN ERROR /social/kakao]', e);
-                const msg =
-                    e?.response?.data?.message ||
-                    e?.message ||
-                    '카카오 로그인에 실패했습니다.\n다시 시도해 주세요.';
-                Alert.alert('오류', msg);
-            } finally {
-                setKakaoSubmitting(false);
-            }
-        };
-
-        handleKakaoResponse();
-    }, [kakaoResponse, navigation]);
+            Alert.alert('안내', '카카오 로그인에 성공했습니다.');
+        } catch (e) {
+            console.log('[KAKAO LOGIN ERROR]', e);
+            const msg =
+                e?.response?.data?.message ||
+                e?.message ||
+                '카카오 로그인에 실패했습니다.\n다시 시도해 주세요.';
+            Alert.alert('오류', msg);
+        } finally {
+            setKakaoSubmitting(false);
+        }
+    };
 
     // =========================
     // UI
