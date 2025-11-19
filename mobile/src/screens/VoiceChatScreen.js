@@ -1,20 +1,29 @@
 // /src/screens/VoiceChatScreen.js
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, Animated, ScrollView } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
+import { useRoute } from '@react-navigation/native';
 import { sendVoice } from '../shared/api/chatbot';
+import { useChatFontSize } from '../shared/utils/useChatFont'; // 🔹 추가: 챗봇 폰트 훅
 
 export default function VoiceChatScreen() {
     const insets = useSafeAreaInsets();
+    const route = useRoute();
+
+    // 🔹 사용자 설정 폰트 (기본 16)
+    const { chatFontSize } = useChatFontSize(16);
+
+    // ChatScreen 에서 넘어온 기존 sessionId (있을 수도, 없을 수도 있음)
+    const initialSessionId = route.params?.sessionId ?? null;
 
     const [isRecording, setIsRecording] = useState(false);
     const [recording, setRecording] = useState(null);
-    const [lastReply, setLastReply] = useState(null);      // 최근 답변 텍스트
+    const [lastReply, setLastReply] = useState(null);          // 최근 답변 텍스트
     const [sending, setSending] = useState(false);
-    const [voiceSessionId, setVoiceSessionId] = useState(null); // 음성 세션 유지
-    const [sound, setSound] = useState(null);              // 재생 중인 사운드 객체
+    const [voiceSessionId, setVoiceSessionId] = useState(initialSessionId); // 음성 세션 유지
+    const [sound, setSound] = useState(null);                  // 재생 중인 사운드 객체
 
     // ⭐ 동그라미 애니메이션 값
     const pulse = useRef(new Animated.Value(0)).current;
@@ -31,8 +40,7 @@ export default function VoiceChatScreen() {
     // 녹음 ON/OFF에 따라 애니메이션 시작/정지
     useEffect(() => {
         if (isRecording) {
-            // 0 → 1 → 0 반복
-            Animated.loop(
+            const looping = Animated.loop(
                 Animated.sequence([
                     Animated.timing(pulse, {
                         toValue: 1,
@@ -45,7 +53,9 @@ export default function VoiceChatScreen() {
                         useNativeDriver: true,
                     }),
                 ]),
-            ).start();
+            );
+            looping.start();
+            return () => looping.stop();
         } else {
             pulse.stopAnimation();
             pulse.setValue(0);
@@ -54,7 +64,7 @@ export default function VoiceChatScreen() {
 
     const outerScale = pulse.interpolate({
         inputRange: [0, 1],
-        outputRange: [1, 1.4], // 얼마나 커질지
+        outputRange: [1, 1.4],
     });
     const outerOpacity = pulse.interpolate({
         inputRange: [0, 1],
@@ -66,16 +76,19 @@ export default function VoiceChatScreen() {
         async (url) => {
             if (!url) return;
             try {
-                // 이전 사운드 있으면 정리
                 if (sound) {
                     await sound.unloadAsync();
                     setSound(null);
                 }
 
-                // 사운드 생성 + 즉시 재생
+                await Audio.setAudioModeAsync({
+                    allowsRecordingIOS: false,
+                    playsInSilentModeIOS: true,
+                });
+
                 const { sound: newSound } = await Audio.Sound.createAsync(
                     { uri: url },
-                    { shouldPlay: true } // 바로 재생
+                    { shouldPlay: true }
                 );
                 setSound(newSound);
             } catch (e) {
@@ -128,7 +141,6 @@ export default function VoiceChatScreen() {
                 return;
             }
 
-            // ✅ 현재 voiceSessionId를 함께 보냄 → 세션 유지
             const res = await sendVoice({
                 uri,
                 regionCode: 'std',
@@ -136,16 +148,23 @@ export default function VoiceChatScreen() {
             });
             console.log('[VOICE RES in voice screen]', res);
 
-            // 서버가 세션 ID 내려주면, 없던 경우에만 세팅
             if (!voiceSessionId && res?.sessionId) {
                 setVoiceSessionId(res.sessionId);
             }
 
-            // 최근 답변 텍스트 화면에 표시
-            const replyText = res?.replyText || null;
+            let replyText = res?.replyText || null;
+
+            if (!replyText && Array.isArray(res?.history)) {
+                const lastAssistant = [...res.history]
+                    .reverse()
+                    .find((m) => (m.role || '').toLowerCase() !== 'user');
+                if (lastAssistant?.content) {
+                    replyText = lastAssistant.content;
+                }
+            }
+
             setLastReply(replyText);
 
-            // 🔊 서버에서 내려준 TTS 오디오 URL 재생
             if (res?.replyAudioUrl) {
                 await playReplyAudio(res.replyAudioUrl);
             } else {
@@ -166,23 +185,40 @@ export default function VoiceChatScreen() {
 
     return (
         <SafeAreaView
-            edges={['top', 'bottom']}
+            edges={[]}
             className="flex-1 bg-[#f7f8f7]"
         >
             <View
-                style={{ paddingTop: 24, paddingBottom: 16 + insets.bottom }}
+                style={{ paddingTop: 4, paddingBottom:  insets.bottom }}
                 className="flex-1 items-center justify-between px-6"
             >
                 {/* 상단 안내 영역 */}
-                <View className="w-full mt-6 items-center">
-                    <Text className="text-[18px] font-semibold text-gray-900 mb-2">
-                        음성 대화
+                <View className="w-full mt-4 items-center">
+
+                    <Text
+                        className="text-center font-semibold text-black"
+                        style={{ fontSize: 22 }}
+                    >
+                        가운데 버튼을 눌러 말씀해 주세요.
                     </Text>
-                    <Text className="text-[14px] text-gray-600 text-center">
-                        {isRecording
-                            ? '지금 말씀해 주세요. 다시 누르면 전송됩니다.'
-                            : '가운데 버튼을 눌러 말씀해 주세요.'}
+
+
+                    {/* 🔹 한 번 누르면 / 다시 누르면 안내를 여기로 이동 */}
+                    <Text
+                        className="text-center mt-2 text-black"
+                        style={{ fontSize: 18}}
+                    >
+                        한 번 누르면 시작 / 다시 누르면 전송
                     </Text>
+                    {/* 🔹 상태 텍스트도 여기로 이동 */}
+                    {(isRecording || sending) && (
+                        <Text
+                            className="text-center mt-2 text-gray-700"
+                            style={{ fontSize: 18 }}
+                        >
+                            {isRecording ? '녹음 중...' : '서버에 전송 중...'}
+                        </Text>
+                    )}
                 </View>
 
                 {/* 가운데 마이크 원형 영역 */}
@@ -207,32 +243,44 @@ export default function VoiceChatScreen() {
                         <View className="w-[160px] h-[160px] rounded-full bg-[#0f766e] items-center justify-center shadow-lg">
                             <MaterialCommunityIcons
                                 name={isRecording ? 'microphone' : 'microphone-outline'}
-                                size={64}
+                                size={72}
                                 color="#ffffff"
                             />
                         </View>
                     </TouchableOpacity>
 
-                    <Text className="mt-4 text-[13px] text-gray-500">
-                        {isRecording
-                            ? '녹음 중...'
-                            : sending
-                                ? '서버에 전송 중...'
-                                : '한 번 누르면 시작 / 다시 누르면 전송'}
-                    </Text>
                 </View>
 
                 {/* 하단: 마지막 답변 텍스트 크게 표시 (어르신용) */}
-                <View className="w-full bg-white rounded-3xl px-4 py-5 shadow-sm min-h-[120px]">
-                    <Text className="text-[15px] font-semibold text-gray-800 mb-2">
+                <View
+                    className="w-full bg-white rounded-3xl px-4 py-5 shadow-sm"
+                    style={{ minHeight: 120, maxHeight: 260 }}
+                >
+                    <Text
+                        className="font-semibold text-gray-800 mb-2"
+                        style={{ fontSize: 16 }}
+                    >
                         챗봇 답변
                     </Text>
+
                     {lastReply ? (
-                        <Text className="text-[16px] leading-6 text-gray-800">
-                            {lastReply}
-                        </Text>
+                        <ScrollView showsVerticalScrollIndicator>
+                            <Text
+                                className="text-gray-800"
+                                // 🔹 사용자가 선택한 챗봇 폰트로 표시
+                                style={{
+                                    fontSize: chatFontSize,
+                                    lineHeight: chatFontSize + 4,
+                                }}
+                            >
+                                {lastReply}
+                            </Text>
+                        </ScrollView>
                     ) : (
-                        <Text className="text-[13px] text-gray-400">
+                        <Text
+                            className="text-gray-400"
+                            style={{ fontSize: 14 }}
+                        >
                             음성으로 질문하시면, 여기 크게 답변이 보여집니다.
                         </Text>
                     )}

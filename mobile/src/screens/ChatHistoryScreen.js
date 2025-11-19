@@ -40,6 +40,7 @@ export default function ChatHistoryScreen() {
             routes: [{ name: 'ChatMain', params }],
         });
     };
+
     useEffect(() => {
         const unsub = navigation.addListener('focus', refresh);
         return unsub;
@@ -75,9 +76,22 @@ export default function ChatHistoryScreen() {
         ]);
     };
 
-    const renderItem = ({ item, index }) => {
+    const renderItem = ({ item }) => {
         const updated = new Date(item.updatedAt || item.createdAt);
-        const label = `대화 ${item.id}번`;
+
+        // 🔹 백엔드에서 내려주는 첫 질문 필드 우선 사용
+        const firstQuestion =
+            item.firstQuestion ||
+            item.firstUserMessage ||
+            item.firstMessage ||
+            item.title || '';
+
+        // 🔹 첫 질문이 있으면 그걸 타이틀로, 없으면 예전처럼 fallback
+        const label =
+            firstQuestion && firstQuestion.trim().length > 0
+                ? firstQuestion.trim()
+                : `대화 ${item.id}번`;
+
         const timeText = updated.toLocaleString();
 
         return (
@@ -85,31 +99,31 @@ export default function ChatHistoryScreen() {
                 onPress={() => openSession(item)}
                 activeOpacity={0.85}
                 style={{
-                    marginHorizontal: 16,
-                    marginBottom: 10,
-                    borderRadius: 18,
+                    marginHorizontal: 18,
+                    marginBottom: 12,
+                    borderRadius: 20,
                     backgroundColor: 'white',
-                    paddingVertical: 14,
-                    paddingHorizontal: 16,
-                    // 살짝 그림자
+                    paddingVertical: 16,
+                    paddingHorizontal: 18,
                     shadowColor: '#000',
-                    shadowOpacity: 0.05,
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowRadius: 4,
-                    elevation: 2,
+                    shadowOpacity: 0.08,
+                    shadowOffset: { width: 0, height: 3 },
+                    shadowRadius: 5,
+                    elevation: 3,
                 }}
             >
                 <View className="flex-row items-center justify-between">
                     <View className="flex-1 pr-3">
+                        {/* 🔹 타이틀 글자 키움 */}
                         <Text
-                            className="text-[16px] font-semibold text-gray-900"
+                            className="text-[18px] font-semibold text-gray-900"
                             numberOfLines={1}
                         >
                             {label}
-
                         </Text>
+                        {/* 🔹 시간 글자도 키움 */}
                         <Text
-                            className="text-[13px] text-gray-500 mt-1"
+                            className="text-[14px] text-gray-500 mt-2"
                             numberOfLines={1}
                         >
                             최근에 본 시간: {timeText}
@@ -118,17 +132,18 @@ export default function ChatHistoryScreen() {
 
                     <TouchableOpacity
                         onPress={() => remove(item)}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                     >
-                        <Ionicons name="trash-outline" size={22} color="#CBD5E1" />
+                        {/* 🔹 휴지통 아이콘도 조금 키움 */}
+                        <Ionicons name="trash-outline" size={24} color="#CBD5E1" />
                     </TouchableOpacity>
                 </View>
             </TouchableOpacity>
         );
     };
 
-      return (
-          <SafeAreaView
+    return (
+        <SafeAreaView
             edges={['bottom']}
             style={{
                 flex: 1,
@@ -136,56 +151,41 @@ export default function ChatHistoryScreen() {
             }}
         >
             {/* 상단 안내 영역 */}
-            <View className="px-4 pt-3 pb-1">
-                <Text className="text-[20px] font-bold text-gray-900 mb-1">
-                    내 대화방
-                </Text>
-                <Text className="text-[13px] text-gray-500">
-                    지난 대화를 다시 보거나, 새 대화를 시작할 수 있어요.
-                </Text>
-
+            <View className="px-4 pt-4 pb-2">
                 {/* 새 대화 버튼 – 화면 폭 꽉 차게, 크게 */}
                 <TouchableOpacity
                     onPress={createAndOpen}
                     activeOpacity={0.9}
                     style={{
-                        marginTop: 14,
+                        marginTop: 10,
                         borderRadius: 999,
                         backgroundColor: '#0f766e',
-                        paddingVertical: 12,
-                        paddingHorizontal: 16,
+                        paddingVertical: 14,
+                        paddingHorizontal: 18,
                         flexDirection: 'row',
                         alignItems: 'center',
                         justifyContent: 'center',
                     }}
                 >
-                    <Ionicons name="chatbubble-ellipses-outline" size={18} color="#fff" />
-                    <Text className="text-white text-[15px] font-semibold ml-2">
+                    <Ionicons name="chatbubble-ellipses-outline" size={20} color="#fff" />
+                    <Text className="text-white text-[17px] font-semibold ml-3">
                         새 대화 시작하기
                     </Text>
                 </TouchableOpacity>
             </View>
 
-            {/* 구분선 */}
-            <View className="mt-2 mb-1 px-4">
-                <Text className="text-[14px] font-semibold text-gray-700">
-                    대화 기록
-                </Text>
-            </View>
-
             {/* 리스트 */}
-              <FlatList
-                      data={sessions}
-                      keyExtractor={(it) => String(it.id)}
-                      renderItem={renderItem}
-                      contentContainerStyle={{
-                        paddingTop: 2,
-                        // ✅ 탭바랑 살짝만 띄우기 (insets.bottom 더하기)
-                        paddingBottom: Math.max(insets.bottom, 2),
-                      }}
+            <FlatList
+                data={sessions}
+                keyExtractor={(it) => String(it.id)}
+                renderItem={renderItem}
+                contentContainerStyle={{
+                    paddingTop: 4,
+                    paddingBottom: Math.max(insets.bottom + 4, 10),
+                }}
                 ListEmptyComponent={
                     <View className="items-center justify-center py-20 px-6">
-                        <Text className="text-[14px] text-gray-500 mb-3 text-center">
+                        <Text className="text-[16px] text-gray-500 mb-4 text-center">
                             아직 저장된 대화가 없습니다.
                         </Text>
                         <TouchableOpacity
@@ -194,11 +194,11 @@ export default function ChatHistoryScreen() {
                             style={{
                                 borderRadius: 999,
                                 backgroundColor: '#0f766e',
-                                paddingVertical: 10,
-                                paddingHorizontal: 20,
+                                paddingVertical: 12,
+                                paddingHorizontal: 24,
                             }}
                         >
-                            <Text className="text-white text-[14px] font-semibold">
+                            <Text className="text-white text-[16px] font-semibold">
                                 첫 대화 시작하기
                             </Text>
                         </TouchableOpacity>

@@ -19,9 +19,9 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRoute, useNavigation } from '@react-navigation/native';
+import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/native';
 import { sendText, getHistory } from '../shared/api/chatbot';
-
+import { useChatFontSize } from '../shared/utils/useChatFont'; // 🔹 추가
 
 const SUGGESTIONS = ['날씨정보', '일정확인 및 등록', '복지'];
 
@@ -29,6 +29,9 @@ export default function ChatScreen() {
     const route = useRoute();
     const navigation = useNavigation();
     const insets = useSafeAreaInsets();
+
+    // 🔹 회원이 설정한 글자 크기 가져오기 (기본 16)
+    const { chatFontSize } = useChatFontSize(16);
 
     // history 화면에서 들어오면 sessionId가 넘어오고, 새 대화면 undefined
     const initialSessionId =
@@ -97,6 +100,30 @@ export default function ChatScreen() {
             }
         })();
     }, [initialSessionId]);
+
+    useFocusEffect(
+        useCallback(() => {
+            if (!sessionId) return;
+
+            let cancelled = false;
+
+            (async () => {
+                try {
+                    const history = await getHistory(sessionId);
+                    if (!cancelled) {
+                        const mapped = mapHistoryToMessages(history, sessionId);
+                        setMessages(mapped);
+                    }
+                } catch (e) {
+                    console.warn('history reload on focus error:', e?.message ?? String(e));
+                }
+            })();
+
+            return () => {
+                cancelled = true;
+            };
+        }, [sessionId])
+    );
 
     // 홈 추천칩에서 preset 넘어오면 자동 입력
     useEffect(() => {
@@ -232,8 +259,6 @@ export default function ChatScreen() {
         [input, sending, sessionId, regionCode, scrollToEnd],
     );
 
-
-
     const renderItem = ({ item }) => {
         const isMe = item.role === 'me';
         const bubbleCls = isMe
@@ -255,6 +280,8 @@ export default function ChatScreen() {
                         className={`${
                             isMe ? 'text-white' : 'text-gray-800'
                         } leading-5`}
+                        // 🔹 말풍선 텍스트: 설정된 폰트 사이즈 사용
+                        style={{ fontSize: chatFontSize, lineHeight: chatFontSize + 4 }}
                     >
                         {item.text}
                     </Text>
@@ -263,7 +290,10 @@ export default function ChatScreen() {
                             onPress={() => onSend(item.text)}
                             className="mt-2 self-end"
                         >
-                            <Text className="text-[11px] text-white/90 underline">
+                            <Text
+                                className="text-[11px] text-white/90 underline"
+                                style={{ fontSize: 11 }} // 🔹 안내는 고정 소형
+                            >
                                 다시 보내기
                             </Text>
                         </TouchableOpacity>
@@ -276,7 +306,7 @@ export default function ChatScreen() {
     return (
         // ✅ bottom safe-area는 직접 처리할 거라 top만 적용
         <SafeAreaView
-            edges={['top']}
+            edges={[]}
             className="flex-1 bg-[#f7f8f7]"
         >
             <KeyboardAvoidingView
@@ -288,10 +318,14 @@ export default function ChatScreen() {
                         : 0
                 }
             >
-                <View className="flex-1">
+                <View className="flex-1" style={{ paddingTop: 16 }}>
                     {messages.length === 0 ? (
                         <View className="flex-1 items-center justify-center px-6">
-                            <Text className="text-[16px] font-semibold text-gray-800 text-center">
+                            <Text
+                                className="text-[16px] font-semibold text-gray-800 text-center"
+                                // 🔹 빈 상태 안내 문구에도 동일 폰트 적용
+                                style={{ fontSize: chatFontSize }}
+                            >
                                 무엇을 도와드릴까요
                             </Text>
                         </View>
@@ -304,7 +338,8 @@ export default function ChatScreen() {
                             inverted
                             contentContainerStyle={{
                                 paddingHorizontal: 16,
-                                paddingBottom: 8,
+
+
                             }}
                             keyboardShouldPersistTaps="handled"
                             keyboardDismissMode={
@@ -314,7 +349,6 @@ export default function ChatScreen() {
                         />
                     )}
                 </View>
-
 
                 {/* 추천 칩 */}
                 <View className="px-4 pb-1">
@@ -329,7 +363,11 @@ export default function ChatScreen() {
                                 className="mr-2 mb-2 px-3 py-2 rounded-2xl bg-[#eaf2e6]"
                                 activeOpacity={0.85}
                             >
-                                <Text className="text-[12.5px] text-gray-800">
+                                <Text
+                                    className="text-[12.5px] text-gray-800"
+                                    // 🔹 칩 텍스트는 살짝 작게 (기본보다 -2)
+                                    style={{ fontSize: Math.max(chatFontSize - 2, 12) }}
+                                >
                                     {s}
                                 </Text>
                             </TouchableOpacity>
@@ -337,7 +375,7 @@ export default function ChatScreen() {
                     </View>
                 </View>
 
-                {/* ✅ 입력 바: 아래 여백을 직접 insets.bottom 기반으로 살짝만 */}
+                {/* ✅ 입력 바 */}
                 <View
                     style={{
                         paddingBottom: Math.max(insets.bottom - 10, 6), // 탭바와의 간격 6~10px 정도
@@ -373,6 +411,8 @@ export default function ChatScreen() {
                             returnKeyType="send"
                             onSubmitEditing={() => canSend && onSend()}
                             blurOnSubmit={Platform.OS === 'ios'}
+                            // 🔹 입력창 텍스트도 동일 폰트
+                            style={{ fontSize: chatFontSize }}
                         />
 
                         <TouchableOpacity

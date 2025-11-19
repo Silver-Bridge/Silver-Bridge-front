@@ -193,24 +193,51 @@ export default function SignupVerifyScreen({ navigation }) {
             />
 
             {/* 통신사 모달 */}
-            <Modal animationType="slide" transparent visible={carrierOpen} onRequestClose={() => setCarrierOpen(false)}>
-                <TouchableOpacity className="flex-1 bg-black/30 justify-end" activeOpacity={1} onPress={() => setCarrierOpen(false)}>
-                    <View className="bg-white rounded-t-2xl p-4">
-                        <Text className="text-base font-semibold mb-3">통신사</Text>
+            <Modal
+                animationType="slide"
+                transparent
+                visible={carrierOpen}
+                onRequestClose={() => setCarrierOpen(false)}
+            >
+                <TouchableOpacity
+                    className="flex-1 bg-black/30 justify-end"
+                    activeOpacity={1}
+                    onPress={() => setCarrierOpen(false)}
+                >
+                    {/* 🔹 바텀시트 높이 늘리기: max-h-[70%] + padding 조정 */}
+                    <View className="bg-white rounded-t-3xl pt-2 pb-6 px-5 max-h-[85%]">
+                        {/* 상단 핸들바 (옵션) */}
+                        <View className="self-center w-10 h-1.5 rounded-full bg-gray-300 mb-4" />
+
+                        {/* 제목 글자 키우기 */}
+                        <Text className="text-[18px] font-semibold mb-4">통신사 선택</Text>
+
                         <FlatList
                             data={carriers}
                             keyExtractor={(it, idx) => `${it}-${idx}`}
                             ItemSeparatorComponent={() => <View className="h-px bg-gray-100" />}
                             renderItem={({ item }) => (
                                 <TouchableOpacity
-                                    className="py-3 flex-row items-center justify-between"
+                                    className="py-4 flex-row items-center justify-between px-1"
                                     onPress={() => {
                                         setData((s) => ({ ...s, carrier: item }));
                                         setCarrierOpen(false);
                                     }}
+                                    activeOpacity={0.8}
                                 >
-                                    <Text className="text-[16px] text-gray-900">{item}</Text>
-                                    {data.carrier === item ? <Text className="text-teal-600">✓</Text> : null}
+                                    {/* 🔹 통신사 글씨 더 크게 */}
+                                    <Text
+                                        className={`text-[18px] ${
+                                            data.carrier === item
+                                                ? 'text-teal-700 font-semibold'
+                                                : 'text-gray-900'
+                                        }`}
+                                    >
+                                        {item}
+                                    </Text>
+                                    {data.carrier === item ? (
+                                        <Text className="text-teal-600 text-[18px]">✓</Text>
+                                    ) : null}
                                 </TouchableOpacity>
                             )}
                         />
