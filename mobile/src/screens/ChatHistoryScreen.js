@@ -79,6 +79,15 @@ export default function ChatHistoryScreen() {
     const renderItem = ({ item }) => {
         const updated = new Date(item.updatedAt || item.createdAt);
 
+        // 🔹 24시간제 + "시/분"만 표시 (예: 17시 03분)
+        const formatTime = (date) => {
+            const hh = String(date.getHours()).padStart(2, '0');   // 00~23
+            const mm = String(date.getMinutes()).padStart(2, '0'); // 00~59
+            return `${hh}시 ${mm}분`;
+        };
+
+        const timeText = formatTime(updated);
+
         // 🔹 백엔드에서 내려주는 첫 질문 필드 우선 사용
         const firstQuestion =
             item.firstQuestion ||
@@ -91,8 +100,6 @@ export default function ChatHistoryScreen() {
             firstQuestion && firstQuestion.trim().length > 0
                 ? firstQuestion.trim()
                 : `대화 ${item.id}번`;
-
-        const timeText = updated.toLocaleString();
 
         return (
             <TouchableOpacity
@@ -114,14 +121,15 @@ export default function ChatHistoryScreen() {
             >
                 <View className="flex-row items-center justify-between">
                     <View className="flex-1 pr-3">
-                        {/* 🔹 타이틀 글자 키움 */}
+                        {/* 타이틀: 첫 질문 내용 (또는 fallback) */}
                         <Text
                             className="text-[18px] font-semibold text-gray-900"
                             numberOfLines={1}
                         >
                             {label}
                         </Text>
-                        {/* 🔹 시간 글자도 키움 */}
+
+                        {/* 시간: 17시 03분 형태로 표시 */}
                         <Text
                             className="text-[14px] text-gray-500 mt-2"
                             numberOfLines={1}
@@ -134,7 +142,6 @@ export default function ChatHistoryScreen() {
                         onPress={() => remove(item)}
                         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                     >
-                        {/* 🔹 휴지통 아이콘도 조금 키움 */}
                         <Ionicons name="trash-outline" size={24} color="#CBD5E1" />
                     </TouchableOpacity>
                 </View>

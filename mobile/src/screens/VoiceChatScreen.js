@@ -216,7 +216,7 @@ export default function VoiceChatScreen() {
                             className="text-center mt-2 text-gray-700"
                             style={{ fontSize: 18 }}
                         >
-                            {isRecording ? '녹음 중...' : '서버에 전송 중...'}
+                            {isRecording ? '녹음 중...' : '실비가 답변하는 중~~'}
                         </Text>
                     )}
                 </View>
