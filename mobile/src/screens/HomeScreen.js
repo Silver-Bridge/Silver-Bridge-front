@@ -62,14 +62,6 @@ function TopBar({ name, ui }) {
                     <TouchableOpacity hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                         <Ionicons name="notifications-outline" size={iconSz} color="#111827" />
                     </TouchableOpacity>
-                    <View style={{ width: gap }} />
-                    <TouchableOpacity hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                        <Ionicons name="search" size={iconSz} color="#111827" />
-                    </TouchableOpacity>
-                    <View style={{ width: gap }} />
-                    <TouchableOpacity hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                        <Ionicons name="settings-outline" size={iconSz} color="#111827" />
-                    </TouchableOpacity>
                 </View>
             </View>
         </View>
@@ -106,14 +98,21 @@ function ScheduleRow({ item, done, onToggle }) {
             <View className="flex-row items-center justify-between">
                 <View className="flex-1 pr-3">
                     {/* 상단: 포인트 점 + 제목 */}
-                    <View className="flex-row items-center mb-1">
+                    <View className="flex-row items-center mb-2">
                         <View
                             style={{ backgroundColor: accent }}
                             className="w-2 h-2 rounded-full mr-2"
                         />
                         <Text
-                            className="text-[13px] font-semibold text-gray-800"
-                            style={done ? { textDecorationLine: 'line-through', textDecorationColor: '#9CA3AF' } : undefined}
+                            className="text-[18px] font-bold text-gray-900"
+                            style={
+                                done
+                                    ? {
+                                        textDecorationLine: 'line-through',
+                                        textDecorationColor: '#9CA3AF',
+                                    }
+                                    : undefined
+                            }
                             numberOfLines={1}
                         >
                             {item.title}
@@ -123,16 +122,26 @@ function ScheduleRow({ item, done, onToggle }) {
                     {/* 중앙: 시간 (굵게) */}
                     <Text
                         className="text-[22px] font-extrabold tracking-tight text-gray-900"
-                        style={done ? { textDecorationLine: 'line-through', textDecorationColor: '#9CA3AF' } : undefined}
+                        style={
+                            done
+                                ? {
+                                    textDecorationLine: 'line-through',
+                                    textDecorationColor: '#9CA3AF',
+                                }
+                                : undefined
+                        }
                     >
                         {timeText}
                     </Text>
 
                     {/* 하단: 장소 (있을 때만) */}
                     {!!item.place && (
-                        <View className="mt-1 flex-row items-center">
-                            <Ionicons name="location-outline" size={14} color="#6B7280" />
-                            <Text className="ml-1 text-[12px] text-gray-600" numberOfLines={1}>
+                        <View className="mt-2 flex-row items-center">
+                            <Ionicons name="location-outline" size={16} color="#6B7280" />
+                            <Text
+                                className="ml-1 text-[13px] text-gray-700"
+                                numberOfLines={1}
+                            >
                                 {item.place}
                             </Text>
                         </View>
@@ -145,13 +154,16 @@ function ScheduleRow({ item, done, onToggle }) {
                     className="w-8 h-8 rounded-lg border border-gray-300 items-center justify-center"
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                    <Ionicons name={done ? 'checkbox' : 'square-outline'} size={20} color="#111827" />
+                    <Ionicons
+                        name={done ? 'checkbox' : 'square-outline'}
+                        size={20}
+                        color="#111827"
+                    />
                 </TouchableOpacity>
             </View>
         </View>
     );
 }
-
 
 function TodaySchedule({ items, loading, error, onRetry, ui }) {
     const navigation = useNavigation();
