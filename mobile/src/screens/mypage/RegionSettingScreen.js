@@ -1,71 +1,138 @@
-// mobile/src/screens/mypage/RegionSettingScreen.js (수정된 최종 코드)
+// mobile/src/screens/mypage/RegionSettingScreen.js
 
-import React, { useState } from 'react';
-import { View, Text, SafeAreaView, TouchableOpacity, Modal, Image, Alert } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import {
+    View,
+    Text,
+    SafeAreaView,
+    TouchableOpacity,
+    Modal,
+    Image,
+    Alert,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSignup } from '../signup/SignupContext';
 import regionImages from '../../shared/assets/regionImages';
+import { updateRegion } from '../../shared/api/user'; // 🔹 추가
 
 // 지원하는 지역 목록
 const REGIONS = ['경상도', '전라도', '충청도'];
+const USER_INFO_KEY = 'USER_INFO';
 
 export default function RegionSettingScreen() {
     const navigation = useNavigation();
     const { data, setData } = useSignup();
+
     const [modalVisible, setModalVisible] = useState(false);
+    const [currentRegion, setCurrentRegion] = useState(data.region || '경상도');
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
 
-    // [수정된 부분] 초기값은 항상 Zustand에 저장된 지역을 사용합니다.
-    const [currentRegion, setCurrentRegion] = useState(data.region);
-
-    // 드롭다운에서 지역을 선택했을 때 실행
-    const handleRegionSelect = (regionName) => {
-        setModalVisible(false); // 드롭다운 닫기
-
-        // 현재 지역과 다를 경우에만 변경 확인 팝업 띄우기
-        if (currentRegion !== regionName) {
-            Alert.alert(
-                "지역 변경 확인",
-                `지역을 ${regionName} 방언으로 변경하시겠습니까?`,
-                [
-                    { text: "아니오", style: "cancel" },
-                    {
-                        text: "네",
-                        onPress: () => {
-                            // 1. 상태 및 Context 업데이트 (Zustand에 저장)
-                            setCurrentRegion(regionName);
-                            setData(s => ({ ...s, region: regionName }));
-                        }
+    // ✅ 진입 시 USER_INFO 기준으로 현재 지역 불러오기
+    useEffect(() => {
+        (async () => {
+            try {
+                const raw = await AsyncStorage.getItem(USER_INFO_KEY);
+                if (raw) {
+                    const info = JSON.parse(raw);
+                    if (info.region && REGIONS.includes(info.region)) {
+                        setCurrentRegion(info.region);
+                        // SignupContext도 동기화 (MyPage에서 value 보여주려고)
+                        setData((s) => ({ ...s, region: info.region }));
                     }
-                ],
-                { cancelable: false }
-            );
+                }
+            } catch (e) {
+                console.log('[RegionSetting] load USER_INFO error:', e?.message || e);
+            } finally {
+                setLoading(false);
+            }
+        })();
+    }, [setData]);
+
+    // 지역 변경 실제 처리 (DB + 로컬)
+    const applyRegionChange = async (regionName) => {
+        try {
+            setSaving(true);
+
+            // 1) 🔹 백엔드에 반영
+            await updateRegion({ region: regionName });
+
+            // 2) USER_INFO 갱신
+            const raw = await AsyncStorage.getItem(USER_INFO_KEY);
+            const info = raw ? JSON.parse(raw) : {};
+            const newInfo = {
+                ...info,
+                region: regionName,
+            };
+            await AsyncStorage.setItem(USER_INFO_KEY, JSON.stringify(newInfo));
+
+            // 3) 화면 / 컨텍스트 상태 반영
+            setCurrentRegion(regionName);
+            setData((s) => ({ ...s, region: regionName }));
+
+            Alert.alert('완료', `${regionName} 방언으로 변경되었어요.`);
+        } catch (e) {
+            console.log('[RegionSetting] update error:', e?.message || e);
+            Alert.alert('오류', '지역을 변경하는 중 문제가 발생했습니다.');
+        } finally {
+            setSaving(false);
         }
     };
 
-    // [수정된 부분] currentRegion에 해당하는 이미지만을 사용합니다.
-    // 만약 데이터에 없으면, 기본값으로 '경상도' 이미지를 표시하도록 fallback을 설정합니다.
-    const selectedImageSource = regionImages[currentRegion] || regionImages['경상도'];
+    // 드롭다운에서 지역 선택
+    const handleRegionSelect = (regionName) => {
+        setModalVisible(false);
+
+        if (currentRegion === regionName) return;
+
+        Alert.alert(
+            '지역 변경 확인',
+            `지역을 ${regionName} 방언으로 변경하시겠습니까?`,
+            [
+                { text: '아니오', style: 'cancel' },
+                {
+                    text: '네',
+                    onPress: () => {
+                        if (!saving) {
+                            applyRegionChange(regionName);
+                        }
+                    },
+                },
+            ],
+            { cancelable: false },
+        );
+    };
+
+    // 현재 지역 이미지 (없으면 경상도 기본)
+    const selectedImageSource =
+        regionImages[currentRegion] || regionImages['경상도'];
 
     return (
         <SafeAreaView className="flex-1 bg-white">
             <View className="flex-1 p-6 items-center">
-
-                {/* 헤더 및 드롭다운 버튼 */}
+                {/* 헤더 + 드롭다운 */}
                 <View className="w-full flex-row justify-center relative mb-8">
-                    <TouchableOpacity onPress={() => navigation.goBack()} className="absolute left-0 top-1">
+                    <TouchableOpacity
+                        onPress={() => navigation.goBack()}
+                        className="absolute left-0 top-1"
+                    >
                         <Text className="text-2xl">{'←'}</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                         className="flex-row items-center justify-center p-2 rounded-lg"
-                        onPress={() => setModalVisible(true)}
+                        onPress={() => !saving && setModalVisible(true)}
+                        disabled={saving}
                     >
-                        <Text className="text-xl font-bold mr-2">{currentRegion}</Text>
+                        <Text className="text-xl font-bold mr-2">
+                            {loading ? '불러오는 중...' : currentRegion}
+                        </Text>
                         <Text className="text-xl">▼</Text>
                     </TouchableOpacity>
                 </View>
 
-                {/* 지역 지도 이미지 (고정 이미지 표시) */}
+                {/* 지역 지도 이미지 */}
                 <View className="w-full max-w-md aspect-[0.9] items-center justify-center border border-gray-300 rounded-lg overflow-hidden">
                     <Image
                         source={selectedImageSource}
@@ -74,30 +141,50 @@ export default function RegionSettingScreen() {
                 </View>
 
                 <Text className="mt-4 text-center text-lg text-gray-700">
-                    현재 챗봇 서비스에는 <Text className="font-bold text-red-600">{currentRegion}</Text> 방언이 적용됩니다.
+                    현재 챗봇 서비스에는{' '}
+                    <Text className="font-bold text-red-600">
+                        {loading ? '...' : currentRegion}
+                    </Text>{' '}
+                    방언이 적용됩니다.
                 </Text>
 
+                {saving && (
+                    <Text className="mt-2 text-sm text-gray-500">
+                        지역 정보를 저장하는 중입니다...
+                    </Text>
+                )}
             </View>
 
-            {/* 지역 선택 드롭다운 메뉴 (Modal 구현) */}
+            {/* 지역 선택 드롭다운 */}
             <Modal
                 animationType="fade"
-                transparent={true}
+                transparent
                 visible={modalVisible}
                 onRequestClose={() => setModalVisible(false)}
             >
                 <TouchableOpacity
                     className="flex-1 justify-start items-center pt-20 bg-black/30"
-                    onPress={() => setModalVisible(false)} // 배경 클릭 시 닫기
+                    onPress={() => setModalVisible(false)}
+                    activeOpacity={1}
                 >
                     <View className="bg-white rounded-lg w-64 shadow-xl">
                         {REGIONS.map((region) => (
                             <TouchableOpacity
                                 key={region}
-                                className={`py-3 px-4 border-b ${currentRegion === region ? 'bg-teal-100' : 'bg-white'}`}
+                                className={`py-3 px-4 border-b ${
+                                    currentRegion === region
+                                        ? 'bg-teal-100'
+                                        : 'bg-white'
+                                }`}
                                 onPress={() => handleRegionSelect(region)}
                             >
-                                <Text className={`text-lg ${currentRegion === region ? 'font-bold text-teal-700' : 'text-gray-800'}`}>
+                                <Text
+                                    className={`text-lg ${
+                                        currentRegion === region
+                                            ? 'font-bold text-teal-700'
+                                            : 'text-gray-800'
+                                    }`}
+                                >
                                     {region} 방언
                                 </Text>
                             </TouchableOpacity>

@@ -318,7 +318,7 @@ export default function ChatScreen() {
                         : 0
                 }
             >
-                <View className="flex-1" style={{ paddingTop: 16 }}>
+                <View className="flex-1" style={{ paddingTop: 16, paddingBottom: 8 }}>
                     {messages.length === 0 ? (
                         <View className="flex-1 items-center justify-center px-6">
                             <Text
