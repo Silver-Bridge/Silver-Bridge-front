@@ -10,6 +10,7 @@ import SignupFontScreen from '../screens/signup/SignupFontScreen';
 import SignupWrapper from '../screens/signup/SignupWrapper';
 import {SignupProvider} from '../screens/signup/SignupContext';
 
+
 const Stack = createNativeStackNavigator();
 
 export default function SignupStack() {
@@ -23,6 +24,7 @@ export default function SignupStack() {
                     <Stack.Screen name="SignupVerify" component={SignupVerifyScreen}/>
                     <Stack.Screen name="SignupPassword" component={SignupPasswordScreen}/>
                     <Stack.Screen name="SignupRegion" component={SignupRegionScreen}/>
+
                     <Stack.Screen name="SignupFont" component={SignupFontScreen}/>
                 </Stack.Navigator>
             </SignupWrapper>

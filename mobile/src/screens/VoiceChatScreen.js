@@ -1,12 +1,12 @@
 // /src/screens/VoiceChatScreen.js
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, Animated, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, Animated, ScrollView, Image } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import { useRoute } from '@react-navigation/native';
 import { sendVoice } from '../shared/api/chatbot';
-import { useChatFontSize } from '../shared/utils/useChatFont'; // 🔹 추가: 챗봇 폰트 훅
+import { useChatFontSize } from '../shared/utils/useChatFont';
 
 export default function VoiceChatScreen() {
     const insets = useSafeAreaInsets();
@@ -183,46 +183,74 @@ export default function VoiceChatScreen() {
         else startRecording();
     }, [isRecording, startRecording, stopRecording, sending]);
 
+    // 🔹 상태 안내 문구 (조금 더 큰 글씨용)
+    const statusLabel = isRecording
+        ? '지금 말씀하시는 중이에요.'
+        : sending
+            ? '답변을 준비하고 있어요.'
+            : '버튼을 누르고 천천히 말씀해 주세요.';
+
     return (
         <SafeAreaView
             edges={[]}
             className="flex-1 bg-[#f7f8f7]"
         >
             <View
-                style={{ paddingTop: 4, paddingBottom:  insets.bottom }}
-                className="flex-1 items-center justify-between px-6"
+                style={{
+                    paddingTop:  32,
+                    paddingBottom:  16,
+                }}
+                className="flex-1 px-6"
             >
                 {/* 상단 안내 영역 */}
-                <View className="w-full mt-4 items-center">
-
-                    <Text
-                        className="text-center font-semibold text-black"
-                        style={{ fontSize: 22 }}
-                    >
-                        가운데 버튼을 눌러 말씀해 주세요.
-                    </Text>
-
-
-                    {/* 🔹 한 번 누르면 / 다시 누르면 안내를 여기로 이동 */}
-                    <Text
-                        className="text-center mt-2 text-black"
-                        style={{ fontSize: 18}}
-                    >
-                        한 번 누르면 시작 / 다시 누르면 전송
-                    </Text>
-                    {/* 🔹 상태 텍스트도 여기로 이동 */}
-                    {(isRecording || sending) && (
-                        <Text
-                            className="text-center mt-2 text-gray-700"
-                            style={{ fontSize: 18 }}
+                <View className="w-full">
+                    {/* 로고 + 타이틀 */}
+                    <View className="flex-row items-center mb-4">
+                        <View
+                            style={{ width: 44, height: 44 }}
+                            className="rounded-full bg-[#e2f1dd] items-center justify-center mr-3"
                         >
-                            {isRecording ? '녹음 중...' : '실비가 답변하는 중~~'}
+                            <Image
+                                source={require('../../assets/logo.png')}
+                                style={{ width: 30, height: 30 }}
+                                resizeMode="contain"
+                            />
+                        </View>
+                        <View className="flex-1">
+                            <Text
+                                className="text-gray-900 font-semibold"
+                                style={{ fontSize: 22 }}   // 🔹 조금 키움 (20 → 22)
+                                numberOfLines={1}
+                            >
+                                실비에게 말 걸기
+                            </Text>
+                            <Text
+                                className="text-gray-500 mt-1"
+                                style={{ fontSize: 15 }}   // 🔹 (14 → 16)
+                            >
+                                버튼을 눌러 말씀하시고, 다시 눌러 전송해 주세요.
+                            </Text>
+                        </View>
+                    </View>
+
+                    {/* 상태 안내 배지 */}
+                    <View className="flex-row items-center self-start px-3 py-2 rounded-full bg-white border border-gray-200 shadow-sm">
+                        <MaterialCommunityIcons
+                            name={isRecording ? 'record-rec' : 'information-outline'}
+                            size={20}
+                            color={isRecording ? '#dc2626' : '#6b7280'}
+                        />
+                        <Text
+                            className="ml-2 text-gray-800"
+                            style={{ fontSize: 16 }}   // 🔹 (14 → 16)
+                        >
+                            {statusLabel}
                         </Text>
-                    )}
+                    </View>
                 </View>
 
                 {/* 가운데 마이크 원형 영역 */}
-                <View className="items-center justify-center">
+                <View className="items-center justify-center flex-1">
                     {/* 퍼지는 바깥 원 */}
                     <Animated.View
                         style={{
@@ -240,34 +268,54 @@ export default function VoiceChatScreen() {
                         onPress={toggleRecording}
                         activeOpacity={0.9}
                     >
-                        <View className="w-[160px] h-[160px] rounded-full bg-[#0f766e] items-center justify-center shadow-lg">
+                        <View className="w-[170px] h-[170px] rounded-full bg-[#0f766e] items-center justify-center shadow-lg">
                             <MaterialCommunityIcons
                                 name={isRecording ? 'microphone' : 'microphone-outline'}
-                                size={72}
+                                size={80}
                                 color="#ffffff"
                             />
                         </View>
                     </TouchableOpacity>
-
                 </View>
 
-                {/* 하단: 마지막 답변 텍스트 크게 표시 (어르신용) */}
+                {/* 하단: 마지막 답변 카드 (어르신용, 크게) */}
                 <View
-                    className="w-full bg-white rounded-3xl px-4 py-5 shadow-sm"
-                    style={{ minHeight: 120, maxHeight: 260 }}
+                    className="w-full bg-white rounded-3xl px-5 py-5 shadow-md border border-gray-100"
+                    style={{ minHeight: 130, maxHeight: 320 }}
                 >
-                    <Text
-                        className="font-semibold text-gray-800 mb-2"
-                        style={{ fontSize: 16 }}
-                    >
-                        챗봇 답변
-                    </Text>
+                    <View className="flex-row items-center mb-3">
+                        <Image
+                            source={require('../../assets/logo.png')}
+                            style={{ width: 26, height: 26, marginRight: 8 }}
+                            resizeMode="contain"
+                        />
+                        <Text
+                            className="font-semibold text-gray-800"
+                            style={{ fontSize: 17 }}   // 🔹 살짝 키움 (16 → 17)
+                        >
+                            실비의 답변
+                        </Text>
+                    </View>
 
-                    {lastReply ? (
+                    {/* 🔹 응답 기다리는 중일 때: silvy_loading.gif + 안내 문구 */}
+                    {sending ? (
+                        <View className="flex-row items-center">
+                            <Image
+                                source={require('../../assets/silvy_loading.gif')}
+                                style={{ width: 40, height: 40, marginRight: 8 }}
+                                resizeMode="contain"
+                            />
+                            <Text
+                                className="text-gray-700"
+                                style={{ fontSize: 16 }}
+                            >
+                                답변을 준비하고 있어요...
+                            </Text>
+                        </View>
+                    ) : lastReply ? (
                         <ScrollView showsVerticalScrollIndicator>
                             <Text
                                 className="text-gray-800"
-                                // 🔹 사용자가 선택한 챗봇 폰트로 표시
                                 style={{
                                     fontSize: chatFontSize,
                                     lineHeight: chatFontSize + 4,
@@ -279,9 +327,9 @@ export default function VoiceChatScreen() {
                     ) : (
                         <Text
                             className="text-gray-400"
-                            style={{ fontSize: 14 }}
+                            style={{ fontSize: 15 }}  // 🔹 (14 → 15)
                         >
-                            음성으로 질문하시면, 여기 크게 답변이 보여집니다.
+                            음성으로 질문하시면, 여기에서 크게 답변이 보여집니다.
                         </Text>
                     )}
                 </View>

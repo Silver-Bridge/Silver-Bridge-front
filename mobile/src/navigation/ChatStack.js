@@ -18,7 +18,7 @@ export default function ChatStack() {
             <Stack.Screen
                 name="ChatMain"
                 component={ChatScreen}
-                options={{ title: '내 스토리' }}  // 기본 타이틀
+                options={{ title: '담소방' }}  // 기본 타이틀
             />
             <Stack.Screen
                 name="대화기록"
@@ -28,7 +28,7 @@ export default function ChatStack() {
             <Stack.Screen
                 name="VoiceChat"
                 component={VoiceChatScreen}
-                options={{ title: '음성 대화' }}
+                options={{ title: '통화부스' }}
             />
         </Stack.Navigator>
     );

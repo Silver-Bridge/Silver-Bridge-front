@@ -5,10 +5,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 const ICONS = {
-    홈:        ({ focused }) => <Ionicons name="home" size={22} color={focused ? '#0f766e' : '#9ca3af'} />,
-    챗봇:      ({ focused }) => <MaterialCommunityIcons name="robot-outline" size={22} color={focused ? '#0f766e' : '#9ca3af'} />,
-    캘린더:    ({ focused }) => <Ionicons name="calendar" size={22} color={focused ? '#0f766e' : '#9ca3af'} />,
-    마이페이지: ({ focused }) => <Ionicons name="person" size={22} color={focused ? '#0f766e' : '#9ca3af'} />,
+    홈:        ({ focused }) => <Ionicons name="home" size={30} color={focused ? '#0f766e' : '#9ca3af'} />,
+    챗봇:      ({ focused }) => <MaterialCommunityIcons name="robot-outline" size={30} color={focused ? '#0f766e' : '#9ca3af'} />,
+    캘린더:    ({ focused }) => <Ionicons name="calendar" size={30} color={focused ? '#0f766e' : '#9ca3af'} />,
+    마이페이지: ({ focused }) => <Ionicons name="person" size={30} color={focused ? '#0f766e' : '#9ca3af'} />,
 };
 
 export default function BottomTabBar({ state, descriptors, navigation }) {
