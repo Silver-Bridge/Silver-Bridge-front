@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useCallback } from 'react';
 // 초기값
 const defaultState = {
     userType: 'USER',    // 'GUARDIAN' | 'USER'
+    role: 'ROLE_MEMBER',
     name: '',
     rrnFront: '',
     rrnBack1: '',
@@ -12,6 +13,7 @@ const defaultState = {
     region: '',
     fontScale: 50,       // 0~100
     verified: false,     // ⬅️ SMS 인증 완료 여부
+    //alarmActive: true,   // 🔹 알림 기본값: ON
 };
 
 const Ctx = createContext(null);

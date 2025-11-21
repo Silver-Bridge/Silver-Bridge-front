@@ -11,7 +11,8 @@ import MyPageScreen from '../screens/mypage/MyPageScreen';
 import RegionSettingScreen from '../screens/mypage/RegionSettingScreen';
 import MemberEditScreen from '../screens/mypage/MemberEditScreen';
 import FontSettingScreen from '../screens/mypage/FontSettingScreen';
-import NotificationSettingScreen from '../screens/mypage/NotificationSettingScreen'; // ERROR 해결
+import NotificationSettingScreen from '../screens/mypage/NotificationSettingScreen';
+import AlarmSettingScreen from "../screens/settings/AlarmSettingScreen"; // ERROR 해결
 // 🚨 ScheduleSearchScreen 임포트 제거됨
 
 const Stack = createNativeStackNavigator();
@@ -32,6 +33,11 @@ export default function RootNavigator() {
             <Stack.Screen name="MemberEdit" component={MemberEditScreen} />
             <Stack.Screen name="FontSetting" component={FontSettingScreen} />
             <Stack.Screen name="NotificationSetting" component={NotificationSettingScreen} />
+            <Stack.Screen
+                name="AlarmSetting"
+                component={AlarmSettingScreen}
+                options={{ headerShown: false }}
+            />
 
             {/* 🚨 ScheduleSearch 경로 등록 제거됨 */}
         </Stack.Navigator>

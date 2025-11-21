@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const USER_INFO_KEY = 'USER_INFO';
 
 // SignupFontScreen 과 동일하게 유지
-const FONT_SIZES = [16, 18, 20, 22, 24];
+const FONT_SIZES = [14, 16, 18, 20, 22];
 const SIZE_LABELS = ['아주 작게', '조금 작게', '보통', '조금 크게', '크게'];
 
 export function useChatFontSize(defaultSize = 16) {

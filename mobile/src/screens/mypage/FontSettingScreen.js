@@ -10,7 +10,7 @@ const USER_INFO_KEY = 'USER_INFO';
 const FONT_SCALE_KEY = 'FONT_SCALE';
 
 // 5단계 크기 정의 (16pt 부터 2pt씩 증가: 16, 18, 20, 22, 24)
-const FONT_SIZES = [16, 18, 20, 22, 24];
+const FONT_SIZES = [14, 16, 18, 20, 22];
 const SIZE_LABELS = ['아주 작게', '조금 작게', '보통', '조금 크게', '크게'];
 
 const FONT_SCALE_UNIT = 100 / (FONT_SIZES.length - 1);
