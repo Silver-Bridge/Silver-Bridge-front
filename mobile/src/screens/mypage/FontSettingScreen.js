@@ -1,7 +1,8 @@
 // mobile/src/screens/mypage/FontSettingScreen.js
 
 import React, { useEffect, useState } from 'react';
-import { View, Text, SafeAreaView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { updateTextsize } from '../../shared/api/user';
@@ -9,18 +10,15 @@ import { updateTextsize } from '../../shared/api/user';
 const USER_INFO_KEY = 'USER_INFO';
 const FONT_SCALE_KEY = 'FONT_SCALE';
 
-// 5단계 크기 정의 (16pt 부터 2pt씩 증가: 16, 18, 20, 22, 24)
+// 5단계 크기 정의
 const FONT_SIZES = [14, 16, 18, 20, 22];
 const SIZE_LABELS = ['아주 작게', '조금 작게', '보통', '조금 크게', '크게'];
 
 const FONT_SCALE_UNIT = 100 / (FONT_SIZES.length - 1);
 
-// 인덱스를 받아 실제 폰트 크기(pt)를 반환
 const getSizeFromIndex = (index) => FONT_SIZES[index];
-// 인덱스를 받아 0~100 사이 scale 값으로 변환
 const getScaleFromIndex = (index) => index * FONT_SCALE_UNIT;
 
-// 라벨 → 인덱스 매핑
 const LABEL_TO_INDEX = SIZE_LABELS.reduce((acc, label, idx) => {
     acc[label] = idx;
     return acc;
@@ -40,26 +38,25 @@ const PrimaryButton = ({ title, onPress, disabled }) => (
 export default function FontSettingScreen() {
     const navigation = useNavigation();
 
-    const [currentIndex, setCurrentIndex] = useState(2); // 기본값: "보통"
+    const [currentIndex, setCurrentIndex] = useState(2); // "보통"
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
     const currentSize = getSizeFromIndex(currentIndex);
     const currentLabel = SIZE_LABELS[currentIndex];
 
-    // ▶ 진입 시, USER_INFO.textsize 기준으로 초기 인덱스 설정
     useEffect(() => {
         (async () => {
             try {
                 const raw = await AsyncStorage.getItem(USER_INFO_KEY);
                 if (raw) {
                     const info = JSON.parse(raw);
-                    const label = info.textsize; // "아주 작게" ~ "크게"
+                    const label = info.textsize;
                     const idx =
                         LABEL_TO_INDEX[label] !== undefined ? LABEL_TO_INDEX[label] : 2;
                     setCurrentIndex(idx);
                 } else {
-                    setCurrentIndex(2); // 보통
+                    setCurrentIndex(2);
                 }
             } catch (e) {
                 console.log('[FontSetting] load USER_INFO error:', e?.message || e);
@@ -77,10 +74,9 @@ export default function FontSettingScreen() {
         '나가실 계획이 있으시다면 우산 꼭 챙기세요',
     ];
 
-    const renderScale = () => {
-        return FONT_SIZES.map((size, index) => {
+    const renderScale = () =>
+        FONT_SIZES.map((size, index) => {
             const isCurrent = index === currentIndex;
-
             return (
                 <View key={index} className="flex-1 items-center z-20">
                     <TouchableOpacity
@@ -89,9 +85,7 @@ export default function FontSettingScreen() {
                         } shadow-sm`}
                         onPress={() => setCurrentIndex(index)}
                         activeOpacity={0.8}
-                        style={{
-                            transform: [{ scale: isCurrent ? 1.2 : 1 }],
-                        }}
+                        style={{ transform: [{ scale: isCurrent ? 1.2 : 1 }] }}
                     />
                     <Text
                         className={`text-sm mt-3 ${
@@ -104,20 +98,18 @@ export default function FontSettingScreen() {
                 </View>
             );
         });
-    };
 
-    // ✅ 핵심: DB + 로컬 둘 다 업데이트
+    // ✅ DB + 로컬 모두 업데이트
     const handleConfirm = async () => {
         const newLabel = currentLabel;
         const newFontScale = getScaleFromIndex(currentIndex);
 
         setSaving(true);
         try {
-            // 1) 🔹 백엔드에 먼저 반영 (DB 업데이트)
-            //    토큰 기반 인증이 이미 jwtAxios에 붙어있다고 가정
-            await updateTextsize({ textsize: newLabel });
+            // 🔹 1) 백엔드 (PATCH /api/mypage/member/text-size)
+            await updateTextsize(newLabel); // ✅ 여기 수정 (객체 → 문자열)
 
-            // 2) 로컬 USER_INFO / FONT_SCALE도 갱신
+            // 🔹 2) 로컬 반영
             const raw = await AsyncStorage.getItem(USER_INFO_KEY);
             const info = raw ? JSON.parse(raw) : {};
             const newInfo = {
@@ -166,7 +158,9 @@ export default function FontSettingScreen() {
                                     <View
                                         key={i}
                                         className={`rounded-xl px-3 py-2 mb-2 ${
-                                            i % 2 === 0 ? 'self-start bg-blue-100/70' : 'self-end bg-gray-200/70'
+                                            i % 2 === 0
+                                                ? 'self-start bg-blue-100/70'
+                                                : 'self-end bg-gray-200/70'
                                         }`}
                                         style={{ maxWidth: '80%' }}
                                     >

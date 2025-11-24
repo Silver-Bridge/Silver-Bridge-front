@@ -4,19 +4,18 @@ import React, { useEffect, useState } from 'react';
 import {
     View,
     Text,
-    SafeAreaView,
     TouchableOpacity,
     Modal,
     Image,
     Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSignup } from '../signup/SignupContext';
 import regionImages from '../../shared/assets/regionImages';
-import { updateRegion } from '../../shared/api/user'; // 🔹 추가
+import { updateRegion } from '../../shared/api/user';
 
-// 지원하는 지역 목록
 const REGIONS = ['경상도', '전라도', '충청도'];
 const USER_INFO_KEY = 'USER_INFO';
 
@@ -29,7 +28,6 @@ export default function RegionSettingScreen() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
-    // ✅ 진입 시 USER_INFO 기준으로 현재 지역 불러오기
     useEffect(() => {
         (async () => {
             try {
@@ -38,7 +36,6 @@ export default function RegionSettingScreen() {
                     const info = JSON.parse(raw);
                     if (info.region && REGIONS.includes(info.region)) {
                         setCurrentRegion(info.region);
-                        // SignupContext도 동기화 (MyPage에서 value 보여주려고)
                         setData((s) => ({ ...s, region: info.region }));
                     }
                 }
@@ -50,13 +47,13 @@ export default function RegionSettingScreen() {
         })();
     }, [setData]);
 
-    // 지역 변경 실제 처리 (DB + 로컬)
+    // ✅ DB + 로컬 모두 반영
     const applyRegionChange = async (regionName) => {
         try {
             setSaving(true);
 
-            // 1) 🔹 백엔드에 반영
-            await updateRegion({ region: regionName });
+            // 1) 백엔드 (PATCH /api/mypage/member/region)
+            await updateRegion(regionName); // ✅ 여기 수정 (객체 → 문자열)
 
             // 2) USER_INFO 갱신
             const raw = await AsyncStorage.getItem(USER_INFO_KEY);
@@ -67,7 +64,7 @@ export default function RegionSettingScreen() {
             };
             await AsyncStorage.setItem(USER_INFO_KEY, JSON.stringify(newInfo));
 
-            // 3) 화면 / 컨텍스트 상태 반영
+            // 3) 컨텍스트/화면 갱신
             setCurrentRegion(regionName);
             setData((s) => ({ ...s, region: regionName }));
 
@@ -80,7 +77,6 @@ export default function RegionSettingScreen() {
         }
     };
 
-    // 드롭다운에서 지역 선택
     const handleRegionSelect = (regionName) => {
         setModalVisible(false);
 
@@ -104,7 +100,6 @@ export default function RegionSettingScreen() {
         );
     };
 
-    // 현재 지역 이미지 (없으면 경상도 기본)
     const selectedImageSource =
         regionImages[currentRegion] || regionImages['경상도'];
 
@@ -172,9 +167,7 @@ export default function RegionSettingScreen() {
                             <TouchableOpacity
                                 key={region}
                                 className={`py-3 px-4 border-b ${
-                                    currentRegion === region
-                                        ? 'bg-teal-100'
-                                        : 'bg-white'
+                                    currentRegion === region ? 'bg-teal-100' : 'bg-white'
                                 }`}
                                 onPress={() => handleRegionSelect(region)}
                             >

@@ -12,23 +12,34 @@ import RegionSettingScreen from '../screens/mypage/RegionSettingScreen';
 import MemberEditScreen from '../screens/mypage/MemberEditScreen';
 import FontSettingScreen from '../screens/mypage/FontSettingScreen';
 import NotificationSettingScreen from '../screens/mypage/NotificationSettingScreen';
-import AlarmSettingScreen from "../screens/settings/AlarmSettingScreen"; // ERROR 해결
-// 🚨 ScheduleSearchScreen 임포트 제거됨
+import AlarmSettingScreen from "../screens/settings/AlarmSettingScreen";
 
+// 🔹 스타트 화면 추가
+import StartScreen from '../screens/StartScreen';
+import GuardianStack from "./GuardianStack";
+import GuardianConnectScreen from "../screens/guardian/GuardianConnectScreen";
+// 🚨 ScheduleSearchScreen 임포트 제거됨
+import GuardianTabs from './GuardianTabs';
 const Stack = createNativeStackNavigator();
 
 export default function RootNavigator() {
     return (
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Navigator
+            screenOptions={{ headerShown: false }}
+            initialRouteName="Start"   // 🔹 앱 시작 시 Start부터
+        >
+            {/* 스타트 화면 */}
+            <Stack.Screen name="Start" component={StartScreen} />
             {/* 기존 화면 */}
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Signup" component={SignupStack}/>
             <Stack.Screen name="Main" component={MainTabs} />
 
-            {/* [추가] 마이페이지 관련 화면들 (오류 발생 지점) */}
-            <Stack.Screen name="MyPage" component={MyPageScreen} />
 
-            {/* ERROR 해결 지점: 모든 하위 설정 경로를 등록합니다. */}
+            {/* 🔹 보호자용 메인 */}
+            <Stack.Screen name="GuardianMain" component={GuardianTabs} />
+
+
             <Stack.Screen name="RegionSetting" component={RegionSettingScreen} />
             <Stack.Screen name="MemberEdit" component={MemberEditScreen} />
             <Stack.Screen name="FontSetting" component={FontSettingScreen} />
@@ -37,6 +48,10 @@ export default function RootNavigator() {
                 name="AlarmSetting"
                 component={AlarmSettingScreen}
                 options={{ headerShown: false }}
+            />
+            <Stack.Screen
+                name="GuardianConnect"
+                component={GuardianConnectScreen}
             />
 
             {/* 🚨 ScheduleSearch 경로 등록 제거됨 */}

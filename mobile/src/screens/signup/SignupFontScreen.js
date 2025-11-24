@@ -139,7 +139,8 @@ export default function SignupFontScreen() {
             ]);
 
             // 홈으로 이동
-            resetTo('Main');
+            const target = data.role === 'ROLE_NOK' ? 'GuardianMain' : 'Main';
+            resetTo(target);
         } catch (e) {
             const msg =
                 e?.response?.data?.message ||
