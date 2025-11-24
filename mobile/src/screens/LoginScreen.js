@@ -21,18 +21,14 @@ import {
     parseJwt,
 } from '../shared/auth/token';
 
-// ✅ expo-auth-session 관련
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 
-// 브라우저 세션 정리 (파일 최상단 쪽에서 한 번만)
 WebBrowser.maybeCompleteAuthSession();
 
-// ⚠️ Expo의 공개 환경변수(EXPO_PUBLIC_*)를 권장
-// .env에 EXPO_PUBLIC_KAKAO_REST_API_KEY=... 로 저장했다고 가정
 const KAKAO_REST_API_KEY = process.env.EXPO_PUBLIC_KAKAO_REST_API_KEY;
 
-// 전화번호 하이픈 포함 포맷 (010-XXXX-XXXX / 02-XXX-XXXX 대응)
+// 전화번호 하이픈 포함 포맷
 function formatPhoneKR(digits) {
     const d = (digits || '').replace(/\D/g, '');
     if (d.startsWith('02')) {
@@ -46,9 +42,6 @@ function formatPhoneKR(digits) {
     return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7, 11)}`;
 }
 
-// ⚠️ RootNavigator의 실제 이름으로 교체 (예: 'Home' 또는 'MainTabs')
-const TARGET_ROOT = 'Main';
-
 export default function LoginScreen({ navigation }) {
     const [phone, setPhone] = useState('');
     const [password, setPassword] = useState('');
@@ -61,35 +54,33 @@ export default function LoginScreen({ navigation }) {
     );
     const canSubmit = phoneDigits.length >= 10 && password.length >= 8 && !submitting;
 
-    // =========================
-    // ✅ Kakao OAuth (access_token 플로우)
-    // =========================
+    // 🔹 공통: role 에 따라 메인 스크린 이름 결정
+    const getTargetRoot = (role) => {
+        return role === 'ROLE_NOK' ? 'GuardianMain' : 'Main';
+    };
 
-    // ⚠️ 지금은 Expo Go 기준으로 proxy 사용
-    //    배포 시에는 scheme 기반 redirectUri로 교체 예정 (TODO)
+    // =========================
+    // Kakao OAuth (access_token 플로우)
+    // =========================
     const redirectUri = useMemo(
         () =>
             AuthSession.makeRedirectUri({
-                useProxy: true, // Expo Go에서 auth.expo.io 프록시 사용
-                // 배포 시:
-                // scheme: 'silverbridge', path: 'kakao-login' 등으로 변경할 예정
+                useProxy: true,
             }),
         [],
     );
     console.log('[KAKAO] redirectUri =', redirectUri);
 
-    // access_token 바로 받는 implicit flow
     const kakaoAuthUrl = useMemo(() => {
         const params = new URLSearchParams({
-            response_type: 'token', // 🔑 access_token 직접 수신
+            response_type: 'token',
             client_id: KAKAO_REST_API_KEY,
             redirect_uri: redirectUri,
         }).toString();
         return `https://kauth.kakao.com/oauth/authorize?${params}`;
     }, [redirectUri]);
-
     // =========================
-    // 일반 로그인
+    // 🔥 일반 로그인: 역할에 따라 분기
     // =========================
     const onLogin = async () => {
         if (!canSubmit) {
@@ -99,32 +90,60 @@ export default function LoginScreen({ navigation }) {
         try {
             setSubmitting(true);
 
-            // 1) 로그인 호출
             const phoneNumber = formatPhoneKR(phoneDigits);
             const res = await loginApi({ phoneNumber, password });
 
-            // 2) 토큰 저장 (응답 헤더/바디에서 가져온 값)
             const accessToken = res?.tokens?.accessToken;
             const refreshToken = res?.tokens?.refreshToken;
             await setAuth({ accessToken, refreshToken });
 
-            // 3) USER_INFO 저장
+            // ✅ 응답에서 user/role/connectedElderId 꺼내기
             let user = res?.user;
-            if (!user && accessToken && accessToken.split('.').length === 3) {
+            let role = user?.role;
+            let connectedElderId = user?.connectedElderId ?? user?.connected_elder_id;
+
+            // 혹시 user 정보가 없으면 토큰에서 꺼내기
+            if ((!user || !role) && accessToken && accessToken.split('.').length === 3) {
                 const claims = parseJwt(accessToken);
+
                 user = {
                     id: claims?.id ?? claims?.userId ?? claims?.uid ?? claims?.sub,
                     name: claims?.name ?? '사용자',
                     phoneNumber,
+                    role: claims?.role || claims?.auth,
+                    connectedElderId:
+                        claims?.connectedElderId ?? claims?.connected_elder_id ?? null,
                 };
-            }
-            await setUser(normalizeUser(user || { name: '사용자', phoneNumber }));
 
-            // 4) 루트 리셋
+                role = user.role;
+                connectedElderId = user.connectedElderId;
+            }
+
+            console.log('[LOGIN USER]', user);
+
+            await setUser(
+                normalizeUser(
+                    user || { name: '사용자', phoneNumber, role, connectedElderId },
+                ),
+            );
+
+            // ✅ 여기서 “최초 진입 화면” 분기
+            let firstRoute = 'Main'; // 기본: 노인
+
+            if (role === 'ROLE_NOK') {
+                if (connectedElderId) {
+                    // 이미 연결된 보호자 → 바로 보호자 메인
+                    firstRoute = 'GuardianMain';
+                } else {
+                    // 아직 연결 안 된 보호자 → 연결 화면
+                    firstRoute = 'GuardianConnect';
+                }
+            }
+
             navigation.dispatch(
                 CommonActions.reset({
                     index: 0,
-                    routes: [{ name: TARGET_ROOT }],
+                    routes: [{ name: firstRoute }],
                 }),
             );
         } catch (e) {
@@ -152,7 +171,6 @@ export default function LoginScreen({ navigation }) {
         try {
             setKakaoSubmitting(true);
 
-            // 1) 카카오 로그인 페이지 열기
             const result = await AuthSession.startAsync({
                 authUrl: kakaoAuthUrl,
             });
@@ -167,7 +185,6 @@ export default function LoginScreen({ navigation }) {
                 return;
             }
 
-            // 2) implicit flow: #access_token=... 형태로 전달됨
             const kakaoAccessToken = result.params?.access_token;
             if (!kakaoAccessToken) {
                 Alert.alert('오류', '카카오 액세스 토큰을 받지 못했습니다.');
@@ -176,20 +193,41 @@ export default function LoginScreen({ navigation }) {
 
             console.log('[KAKAO] accessToken =', kakaoAccessToken);
 
-            // 3) 백엔드에 accessToken 전달 → 우리 서비스용 JWT 발급
+            // 🔹 백엔드 카카오 로그인 → 우리 서비스 토큰 + 유저 정보
             const res = await kakaoSocialLogin(kakaoAccessToken);
             console.log('[KAKAO LOGIN RES]', res);
 
-            // (옵션) 토큰에서 유저정보 보정
+            const accessToken = res?.tokens?.accessToken;
+            const refreshToken = res?.tokens?.refreshToken;
+            await setAuth({ accessToken, refreshToken });
+
+            let user = res?.user;
+            if (!user && accessToken && accessToken.split('.').length === 3) {
+                const claims = parseJwt(accessToken);
+                user = {
+                    id: claims?.id ?? claims?.userId ?? claims?.uid ?? claims?.sub,
+                    name: claims?.name ?? '사용자',
+                    phoneNumber: claims?.phoneNumber,
+                    role: claims?.role || claims?.auth || claims?.authorities,
+                };
+            }
+
+            const normalized = normalizeUser(
+                user || { name: '사용자' },
+            );
+            await setUser(normalized);
+
             try {
                 await ensureUserFromToken();
             } catch {}
 
-            // 4) 메인으로 이동
+            // 🔹 카카오 로그인도 동일하게 역할별 분기
+            const targetRoot = getTargetRoot(normalized.role);
+
             navigation.dispatch(
                 CommonActions.reset({
                     index: 0,
-                    routes: [{ name: TARGET_ROOT }],
+                    routes: [{ name: targetRoot }],
                 }),
             );
 

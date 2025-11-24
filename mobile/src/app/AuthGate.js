@@ -1,36 +1,50 @@
-// src/app/AuthGate.js (수정)
+// src/app/AuthGate.js
 
-import React, { useState, useCallback } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
-import { useAuth } from '../shared/api/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { resetTo } from '../navigation/navigationRef';
+import { getStoredUser } from '../shared/utils/userStorage';
+
+function resolveFirstRoute(user, hasToken) {
+    if (!hasToken) return 'Login';
+
+    const role = user?.role;
+    const connectedElderId = user?.connectedElderId;
+
+    if (role === 'ROLE_NOK') {
+        if (connectedElderId) return 'GuardianMain';
+        return 'GuardianConnect';
+    }
+    return 'Main';
+}
 
 export default function AuthGate({ children }) {
-    const { isLoggedIn, isLoading } = useAuth();
-    const [isReady, setIsReady] = useState(false);
+    const [ready, setReady] = useState(false);
 
-    const checkAuth = useCallback(async () => {
-        const token = await AsyncStorage.getItem('ACCESS_TOKEN');
-        setAuthed(!!token);
+    useEffect(() => {
+        const run = async () => {
+            try {
+                const token = await AsyncStorage.getItem('ACCESS_TOKEN');
+                const hasToken = !!token;
 
-        if (token) {
-            // [수정 지점]: 'Home' 대신 탭 네비게이터의 이름인 'Main'으로 리셋합니다.
-            resetTo('Main'); // RootNavigator에 등록된 이름은 'Main'입니다.
-        } else {
-            resetTo('Login');
-        }
-        setReady(true);
+                // 로그인 상태면 USER_INFO도 같이 읽음
+                const user = hasToken ? await getStoredUser() : null;
+
+                const firstRoute = resolveFirstRoute(user, hasToken);
+                resetTo(firstRoute);
+            } catch (e) {
+                console.log('[AuthGate] error', e);
+                resetTo('Login');
+            } finally {
+                setReady(true);
+            }
+        };
+
+        run();
     }, []);
 
-    useFocusEffect(
-        useCallback(() => {
-            setReady(false);
-            checkAuth();
-        }, [checkAuth])
-    );
-
-    if (isLoading || !isReady) {
+    if (!ready) {
         return (
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
                 <ActivityIndicator size="large" />
@@ -38,5 +52,7 @@ export default function AuthGate({ children }) {
         );
     }
 
-    return typeof children === 'function' ? children({ authed }) : children;
+    // AuthGate는 네비게이션만 초기화해주고,
+    // 실제 화면은 NavigationContainer 쪽에서 렌더됨
+    return children;
 }
