@@ -1,58 +1,82 @@
-# Silver Bridge Frontend
-> 지역별 노인 맞춤형 사투리 음성인식 서비스를 제공하는 AI 기반 복지 플랫폼 **Silver Bridge**의 사용자 인터페이스(Web/App)입니다.
+# Silver Bridge Mobile App
+> 지역별 노인 맞춤형 사투리 음성인식 서비스를 제공하는 AI 기반 복지 플랫폼 **Silver Bridge**의 모바일 애플리케이션입니다.
 
 ---
 
 # 📚 Table of Contents
 
 1. [프로젝트 구조](#-1-프로젝트-구조)
-2. [Pages & Routes](#-2-pages--routes-summary)
-3. [Components](#-3-components-summary)
-4. [API & Hooks](#-4-api--hooks-layer)
+2. [Navigation & Screens](#-2-navigation--screens)
+3. [API & Data Layer](#-3-api--data-layer)
+4. [Components & Utils](#-4-components--shared-utils)
 5. [Installation](#-5-installation--run)
 
 
 ---
 
-# 🚀 프로젝트 개요
-Silver Bridge Frontend는 고령층 사용자를 위해 **직관적인 UI/UX**와 **음성 인터페이스**를 중점으로 설계되었습니다.
-보호자와 노인 사용자를 위한 맞춤형 화면을 제공하며, 백엔드 API와 실시간으로 통신합니다.
+# 📱 프로젝트 개요
+Silver Bridge App은 React Native(Expo)로 개발되었으며, **직관적인 터치 인터페이스**와 **음성 대화 기능**을 통해 고령층 사용자가 쉽게 사용할 수 있도록 설계되었습니다.
 
 ---
 
-# 📦 기술 스택 (Auto-detected)
-package.json not found.
+# 📦 기술 스택
+### ✨ Core Libraries
+- **@react-native-async-storage/async-storage**: `^2.2.0`
+- **@react-native-picker/picker**: `^2.11.4`
+- **@react-native-seoul/kakao-login**: `^5.4.2`
+- **@react-navigation/bottom-tabs**: `^7.4.7`
+- **@react-navigation/native**: `^7.1.17`
+- **@react-navigation/native-stack**: `^7.3.26`
+- **@tanstack/react-query**: `^5.87.4`
+- **react**: `19.1.0`
+- **react-native**: `0.81.4`
+- **react-native-calendars**: `^1.1313.0`
+- **react-native-gesture-handler**: `^2.28.0`
+- **react-native-reanimated**: `^4.1.0`
+- **react-native-safe-area-context**: `^5.6.1`
+- **react-native-screens**: `^4.16.0`
+- **react-native-svg**: `15.12.1`
+- **react-native-worklets**: `^0.5.1`
+- **@react-native-async-storage/async-storage**: `^2.2.0`
+- **@react-native-picker/picker**: `^2.11.4`
+- **@react-native-seoul/kakao-login**: `^5.4.2`
+- **react-native**: `0.81.4`
+- **react-native-calendars**: `^1.1313.0`
+- **react-native-gesture-handler**: `^2.28.0`
+- **react-native-reanimated**: `^4.1.0`
+- **react-native-safe-area-context**: `^5.6.1`
+- **react-native-screens**: `^4.16.0`
+- **react-native-svg**: `15.12.1`
+- **react-native-worklets**: `^0.5.1`
+- **@expo/vector-icons**: `^15.0.2`
+- **babel-preset-expo**: `~54.0.0`
+- **expo**: `~54.0.6`
+- **expo-auth-session**: `~7.0.9`
+- **expo-av**: `~16.0.7`
+- **expo-linear-gradient**: `~15.0.7`
+- **expo-speech**: `~14.0.7`
+- **expo-status-bar**: `~3.0.8`
+- **expo-web-browser**: `~15.0.9`
+- **@react-navigation/native**: `^7.1.17`
+- **@react-navigation/native-stack**: `^7.3.26`
+- **axios**: `^1.12.2`
+- **axios-mock-adapter**: `^2.1.0`
+- **@tanstack/react-query**: `^5.87.4`
+- **@tanstack/react-query**: `^5.87.4`
+- **zustand**: `^5.0.8`
+- **nativewind**: `^4.2.0`
+- **tailwindcss**: `^3.4.17`
+
+### 📚 Dependencies Summary
+- Total Dependencies: 32개
+
 
 ---
 
 # 📁 1. 프로젝트 구조
 <pre>
 └── 📁 mobile
-    ├── 📄 App.js
-    ├── 📄 app.json
-    ├── 📁 assets
-    │   ├── 📄 avatar_elderly_female.png
-    │   ├── 📄 avatar_elderly_male.png
-    │   ├── 📄 avatar_guardian_female.png
-    │   ├── 📄 avatar_guardian_male.png
-    │   ├── 📄 chungcheong.png
-    │   ├── 📄 emotion_0_positive.png
-    │   ├── 📄 emotion_1_sadness.png
-    │   ├── 📄 emotion_2_anger.png
-    │   ├── 📄 emotion_3_anxiety.png
-    │   ├── 📄 emotion_4_surprise.png
-    │   ├── 📄 emotion_5_disgust.png
-    │   ├── 📄 emotion_6_neutral.png
-    │   ├── 📄 gyeongsang.png
-    │   ├── 📄 jeolla.png
-    │   ├── 📄 logo.png
-    │   ├── 📄 silvy_loading.gif
-    │   └── 📄 start_silbi.png
-    ├── 📄 babel.config.js
-    ├── 📄 global.css
-    ├── 📄 index.js
     ├── 📄 jsconfig.json
-    ├── 📄 metro.config.js
     ├── 📄 package.json
     ├── 📁 src
     │   ├── 📁 app
@@ -119,8 +143,6 @@ package.json not found.
     │       │   ├── 📄 home.js
     │       │   ├── 📄 meta.js
     │       │   └── 📄 user.js
-    │       ├── 📁 assets
-    │       │   └── 📄 regionImages.js
     │       ├── 📁 auth
     │       │   └── 📄 token.js
     │       ├── 📁 chat
@@ -144,35 +166,114 @@ package.json not found.
 
 ---
 
-# 📄 2. Pages & Routes Summary
-> 주요 화면(Page) 구성입니다.
-No standard page directories found (pages, app, views, screens).
+# 🗺️ 2. Navigation & Screens
+> 앱의 네비게이션 구조와 주요 화면 구성입니다.
+### 🧭 Navigation (Stack & Tabs)
+- **CalendarStack.js**
+- **ChatStack.js**
+- **GuardianStack.js**
+- **GuardianTabs.js**
+- **MainTabs.js**
+- **RootNavigator.js**
+- **SignupStack.js**
+- **navigationRef.js**
+
+### 📱 Screens
+- 📄 `MyPageScreen`
+- 📄 `HomeScreen`
+- 📄 `StartScreen`
+- 📄 `ChatHistoryScreen`
+- 📄 `LoginScreen`
+- 📄 `VoiceChatScreen`
+- 📄 `DetailsScreen`
+- 📄 `ChatScreen`
+
+**📂 CALENDAR**
+- `CalendarScreen`
+- `ScheduleAddScreen`
+- `ScheduleEditScreen`
+- `ScheduleSearchScreen`
+
+**📂 GUARDIAN**
+- `GuardianCalendarScreen`
+- `GuardianConnectScreen`
+- `GuardianHomeScreen`
+
+**📂 MYPAGE**
+- `FontSettingScreen`
+- `MemberEditScreen`
+- `MyPageScreen`
+- `NotificationSettingScreen`
+- `RegionSettingScreen`
+
+**📂 SETTINGS**
+- `AlarmSettingScreen`
+
+**📂 SIGNUP**
+- `SignupContext`
+- `SignupFontScreen`
+- `SignupNameScreen`
+- `SignupPasswordScreen`
+- `SignupRegionScreen`
+- `SignupTypeScreen`
+- `SignupVerifyScreen`
+- `SignupWrapper`
+
 
 ---
 
-# 🧩 3. Components Summary
-> 재사용 가능한 UI 컴포넌트 구조입니다.
-No 'components' directory found.
+# 📡 3. API & Data Layer
+> 백엔드 통신(Axios) 및 데이터 처리 로직입니다.
+### 📡 Shared API (`src/shared/api`)
+- **auth.js**
+- **axios.js**
+- **calendar.js**
+- **chatbot.js**
+- **client.js**
+- **guardian.js**
+- **home.js**
+  - `Functions`: getAssistantSuggestionsApi
+- **meta.js**
+  - `Functions`: getRegionsApi, getCarriersApi
+- **user.js**
+
+### 💾 State & Store (`src/shared/chat`)
+- `localStore.js`
+- `apiStore.js`
+- `storeFactory.js`
+- `types.js`
+
 
 ---
 
-# 📡 4. API & Hooks Layer
-> 백엔드 통신 함수 및 커스텀 훅 요약입니다.
-No API or Hooks directories found.
+# 🧩 4. Components & Shared Utils
+> 재사용 가능한 UI 컴포넌트 및 유틸리티입니다.
+### 🧩 Shared Components
+- `AppText`
+
+### 🧱 Local Parts (Sub-components)
+- `src/screens/signup/_parts`
+- `src/navigation/_parts`
+
+### 🛠 Utilities
+- `format.js`
+- `healthcheck.js`
+- `fontScaleContext.js`
+- `useChatFont.js`
+- `userStorage.js`
+
 
 ---
 
-# 🛠 5. Installation & Run
+# 🚀 5. Installation & Run
 ```bash
+cd mobile
+
 # 의존성 설치
 npm install
-# or
-yarn install
 
-# 개발 서버 실행
-npm run dev
-# or
-yarn dev
+# Expo 앱 실행
+npx expo start
 ```
 
-> **Last Updated:** 2025-11-30 11:03:22
+> **Last Updated:** 2025-11-30 11:05:59
