@@ -57,6 +57,14 @@
         {
           "kakaoAppKey": "758a50949445b929297f5902f2428f8f"
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "kotlinVersion": "2.0.21"
+          }
+        }
       ]
     ],
     "extra": {
