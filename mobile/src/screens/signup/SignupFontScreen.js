@@ -5,7 +5,7 @@ import Header from './_parts/Header';
 import PrimaryButton from './_parts/PrimaryButton';
 import { useSignup } from './SignupContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { join, login } from '../../shared/api/auth';
+import { join, login, completeSocialRegister } from '../../shared/api/auth';
 import { resetTo } from '../../navigation/navigationRef';
 
 // ===== 폰트 5단계 유틸 =====
@@ -21,8 +21,8 @@ const scaleFromIdx = (i) => clamp(i) * UNIT;
 function formatPhoneKR(digits) {
     const d = (digits || '').replace(/\D/g, '');
     if (d.length <= 3) return d;
-    if (d.length <= 7) return `${d.slice(0,3)}-${d.slice(3)}`;
-    return `${d.slice(0,3)}-${d.slice(3,7)}-${d.slice(7,11)}`;
+    if (d.length <= 7) return `${d.slice(0, 3)}-${d.slice(3)}`;
+    return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7, 11)}`;
 }
 
 // ✅ 주민번호 앞6/뒤1 → 생년월일(YYYY-MM-DD), 성별(Boolean) 계산
@@ -35,8 +35,6 @@ function parseBirthAndGender(rrnFront, rrnBack1) {
     const mm = f.slice(2, 4);
     const dd = f.slice(4, 6);
 
-    // 주민번호 성별/세기 규칙 (간단 버전)
-    // 1/2: 1900~, 3/4: 2000~, 5/6: 외국인 1900~, 7/8: 외국인 2000~
     const n = Number(s);
     let century = 1900;
     if ([3, 4, 7, 8].includes(n)) century = 2000;
@@ -44,7 +42,6 @@ function parseBirthAndGender(rrnFront, rrnBack1) {
     const yyyy = String(century + yy);
     const birth = `${yyyy}-${mm}-${dd}`;
 
-    // gender(Boolean): 관례상 남자=true, 여자=false 로 매핑
     const male = [1, 3, 5, 7].includes(n);
     const gender = male ? true : false;
 
@@ -55,7 +52,10 @@ export default function SignupFontScreen() {
     const { data, setData } = useSignup();
     const [submitting, setSubmitting] = useState(false);
 
-    const [currentIndex, setCurrentIndex] = useState(idxFromScale(data?.fontScale ?? 0));
+    const isSocial = data.signupMode === 'social'; // ✅ 소셜 여부
+    const [currentIndex, setCurrentIndex] = useState(
+        idxFromScale(data?.fontScale ?? 0),
+    );
     const currentSize = sizeFromIdx(currentIndex);
     const currentLabel = SIZE_LABELS[currentIndex];
 
@@ -71,75 +71,130 @@ export default function SignupFontScreen() {
             return Alert.alert('안내', '휴대폰 인증을 먼저 완료해주세요.');
         }
 
-        // 🔹 role 선택 여부 체크 (안전망)
         if (!data?.role) {
-            return Alert.alert('안내', '회원 유형 정보가 없습니다. 처음 단계에서 회원 유형을 다시 선택해주세요.');
+            return Alert.alert(
+                '안내',
+                '회원 유형 정보가 없습니다. 처음 단계에서 회원 유형을 다시 선택해주세요.',
+            );
         }
 
-        // 필수값 체크
-        if (!data?.name || !data?.password || !data?.region || !data?.phone) {
-            return Alert.alert('안내', '회원정보가 부족합니다. 이전 단계를 확인해주세요.');
+        // 🔹 공통 필수값 (이름/지역/전화번호)
+        if (!data?.name || !data?.region || !data?.phone) {
+            return Alert.alert(
+                '안내',
+                '회원정보가 부족합니다. 이전 단계를 확인해주세요.',
+            );
         }
 
-        // 주민번호 → birth/gender 파생
+        // 🔹 일반 회원가입일 때만 비밀번호 필수
+        if (!isSocial && !data?.password) {
+            return Alert.alert('안내', '비밀번호를 입력해주세요.');
+        }
+
         const parsed = parseBirthAndGender(data.rrnFront, data.rrnBack1);
         if (!parsed) {
-            return Alert.alert('안내', '주민등록번호 정보를 다시 확인해주세요.');
+            return Alert.alert(
+                '안내',
+                '주민등록번호 정보를 다시 확인해주세요.',
+            );
         }
         const { birth, gender } = parsed;
 
         setSubmitting(true);
         try {
-            // 최신 폰트 스케일 저장
             const fontScale = scaleFromIdx(currentIndex);
             setData((s) => ({ ...s, fontScale }));
 
-            // 백엔드 요구 사양에 맞춘 payload (JoinRequest)
-            const phoneNumber = formatPhoneKR(data.phone); // 하이픈 포함 필수
-            const payload = {
+            const phoneNumber = formatPhoneKR(data.phone); // 하이픈 포함
+            const basePayload = {
                 name: data.name.trim(),
-                password: data.password,
                 phoneNumber,
-                birth,                 // YYYY-MM-DD
-                gender,                // Boolean
-                social: false,         // 기본 가입(basic) → false (kakao면 true)
-                region: data.region,   // 문자열
-                textsize: currentLabel, // NotBlank → 폰트라벨 문자열로 전송
-                role: data.role,       // 🔹 ROLE_MEMBER / ROLE_NOK 추가
-                //alarmActive: data.alarmActive ?? true, // 🔹 백엔드 DTO 이름에 맞춰서
+                birth,
+                gender,
+                social: isSocial,      // ✅ basic:false / kakao:true
+                region: data.region,
+                textsize: currentLabel,
+                role: data.role,
             };
 
-            // 회원가입
-            const res = await join(payload); // "회원가입 성공" 문자열 예상
+            let accessToken, refreshToken, loginUser, resolvedRole, connectedElderId;
 
-            // 자동 로그인
-            const loginRes = await login({ phoneNumber, password: data.password });
-            const { accessToken, refreshToken } = loginRes?.tokens || {};
-            if (!accessToken) throw new Error('토큰을 받을 수 없습니다. 다시 로그인해 주세요.');
+            if (isSocial) {
+                // 🔥 카카오 소셜 최종가입
+                const payload = basePayload; // 소셜 쪽 DTO 규격에 맞다면 그대로 사용
+                const res = await completeSocialRegister(
+                    data.socialTempToken,
+                    payload,
+                );
 
-            // 로컬 저장
+                accessToken = res?.tokens?.accessToken;
+                refreshToken = res?.tokens?.refreshToken;
+                loginUser = res?.user || {};
+                resolvedRole = loginUser.role || data.role;
+                connectedElderId =
+                    loginUser.connectedElderId ??
+                    loginUser.connected_elder_id ??
+                    null;
+            } else {
+                // 🔥 기존 일반 회원가입
+                const payload = {
+                    ...basePayload,
+                    password: data.password,
+                };
+
+                // 1) 회원가입
+                await join(payload);
+
+                // 2) 자동 로그인
+                const loginRes = await login({
+                    phoneNumber,
+                    password: data.password,
+                });
+
+                accessToken = loginRes?.tokens?.accessToken;
+                refreshToken = loginRes?.tokens?.refreshToken;
+                if (!accessToken) {
+                    throw new Error(
+                        '토큰을 받을 수 없습니다. 다시 로그인해 주세요.',
+                    );
+                }
+
+                loginUser = loginRes?.user || {};
+                resolvedRole = loginUser.role || data.role;
+                connectedElderId =
+                    loginUser.connectedElderId ??
+                    loginUser.connected_elder_id ??
+                    null;
+            }
+
+            // 3) 로컬 저장 (공통)
             await AsyncStorage.multiSet([
-                ['ACCESS_TOKEN', accessToken],
+                ['ACCESS_TOKEN', accessToken || ''],
                 ['REFRESH_TOKEN', refreshToken || ''],
                 [
                     'USER_INFO',
                     JSON.stringify({
                         name: data.name,
-                        phoneNumber,
+                        phoneNumber: formatPhoneKR(data.phone),
                         region: data.region,
                         gender,
                         birth,
                         textsize: currentLabel,
-                        role: data.role,          // 🔹 로컬에도 role 저장
-                        userType: data.userType,  // (있으면 같이 보관해두면 나중에 쓰기 좋음)
-                        //alarmActive: data.alarmActive ?? true, // 🔹 백엔드 DTO 이름에 맞춰서
+                        role: resolvedRole,
+                        userType: data.userType,
+                        connectedElderId: connectedElderId,
+                        social: isSocial,
                     }),
                 ],
                 ['FONT_SCALE', String(fontScale)],
             ]);
 
-            // 홈으로 이동
-            const target = data.role === 'ROLE_NOK' ? 'GuardianMain' : 'Main';
+            // 4) 홈으로 이동
+            let target = 'Main';
+            if (resolvedRole === 'ROLE_NOK') {
+                target = connectedElderId ? 'GuardianMain' : 'GuardianConnect';
+            }
+
             resetTo(target);
         } catch (e) {
             const msg =
@@ -166,11 +221,16 @@ export default function SignupFontScreen() {
                                 <View
                                     key={i}
                                     className={`rounded-xl px-3 py-2 mb-2 ${
-                                        i % 2 === 0 ? 'self-start bg-blue-100/70' : 'self-end bg-gray-200/70'
+                                        i % 2 === 0
+                                            ? 'self-start bg-blue-100/70'
+                                            : 'self-end bg-gray-200/70'
                                     }`}
                                     style={{ maxWidth: '80%' }}
                                 >
-                                    <Text style={{ fontSize: currentSize }} className="text-gray-800">
+                                    <Text
+                                        style={{ fontSize: currentSize }}
+                                        className="text-gray-800"
+                                    >
                                         {t}
                                     </Text>
                                 </View>
@@ -194,21 +254,36 @@ export default function SignupFontScreen() {
                             {FONT_SIZES.map((_, index) => {
                                 const isCurrent = index === currentIndex;
                                 return (
-                                    <View key={index} className="flex-1 items-center z-20">
+                                    <View
+                                        key={index}
+                                        className="flex-1 items-center z-20"
+                                    >
                                         <TouchableOpacity
                                             className={`w-4 h-4 rounded-full border-2 ${
                                                 isCurrent
                                                     ? 'bg-teal-600 border-teal-600'
                                                     : 'bg-white border-gray-400'
                                             } shadow-sm`}
-                                            onPress={() => setCurrentIndex(index)}
+                                            onPress={() =>
+                                                setCurrentIndex(index)
+                                            }
                                             activeOpacity={0.8}
                                             disabled={submitting}
-                                            style={{ transform: [{ scale: isCurrent ? 1.2 : 1 }] }}
+                                            style={{
+                                                transform: [
+                                                    {
+                                                        scale: isCurrent
+                                                            ? 1.2
+                                                            : 1,
+                                                    },
+                                                ],
+                                            }}
                                         />
                                         <Text
                                             className={`text-sm mt-3 ${
-                                                isCurrent ? 'font-bold text-teal-600' : 'text-gray-500'
+                                                isCurrent
+                                                    ? 'font-bold text-teal-600'
+                                                    : 'text-gray-500'
                                             }`}
                                             style={{ fontSize: 12 }}
                                         >

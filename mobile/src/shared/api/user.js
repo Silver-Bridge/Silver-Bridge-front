@@ -43,13 +43,10 @@ export async function verifyPassword(password) {
     return res?.data;
 }
 
-/**
- * ✅ 비밀번호 변경
- * backend: PATCH /api/mypage/password-update { oldPassword, newPassword }
- */
-export async function changePassword({ oldPassword, newPassword }) {
+
+export async function changePassword({ currentPassword, newPassword }) {
     const res = await client.patch(`${MYPAGE_PREFIX}/password-update`, {
-        oldPassword,
+        currentPassword,
         newPassword,
     });
     return res?.data;

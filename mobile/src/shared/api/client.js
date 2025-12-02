@@ -33,7 +33,7 @@ function isWhitelisted(pathOrUrl) {
 }
 
 const client = axios.create({
-    baseURL: API_BASE_URL?.trim(),   // 예: http://<PC_IP>:8080/api
+    baseURL: (API_BASE_URL || 'https://api.elderschat.co.kr/api').trim(),
     timeout: 60000,
 });
 

@@ -17,8 +17,8 @@ import PrimaryButton from './_parts/PrimaryButton';
 import { useSignup } from './SignupContext';
 import regionImages from '../../shared/assets/regionImages';
 
-const REGIONS = ['경상도', '전라도', '충청도'];
-const FALLBACK_REGIONS = ['경상도', '전라도', '충청도'];
+const REGIONS = ['경상도', '강원도', '서울'];
+const FALLBACK_REGIONS = ['경상도', '강원도', '서울'];
 
 export default function SignupRegionScreen({ navigation }) {
     const { data, setData } = useSignup();
@@ -58,7 +58,7 @@ export default function SignupRegionScreen({ navigation }) {
                     },
                 },
             ],
-            { cancelable: false }
+            { cancelable: false },
         );
     };
 
@@ -72,55 +72,71 @@ export default function SignupRegionScreen({ navigation }) {
     return (
         <SafeAreaView
             className="flex-1 bg-white"
-            // ✅ 상단 여백 최소화 (top safe-area는 Header 내부에서 처리된다는 가정)
-            edges={['left', 'right', 'bottom']}
+            edges={['left', 'right', 'bottom']}   // 상단은 Header에서 처리
         >
             {/* 상단 헤더 */}
             <Header title="지역을 선택해주세요" />
 
+            {/* 본문 영역 - 가운데 정렬 + 최대 폭 고정 */}
+            <View className="flex-1 items-center px-4 mt-4">
+                <View
+                    style={{
+                        width: '100%',
+                        maxWidth: 480,
+                    }}
+                >
+                    {/* 미리보기 이미지 카드 */}
+                    <View className="w-full items-center justify-center rounded-2xl border border-gray-200 bg-gray-50 overflow-hidden">
+                        <Image
+                            source={selectedImageSource}
+                            className="w-full h-72"
+                            resizeMode="contain"
+                        />
+                    </View>
 
-            {/* 본문 영역 */}
-            <View className="flex-1 px-6 mt-4">
-                {/* ✅ 미리보기 이미지 더 크게 */}
-                <View className="w-full items-center justify-center rounded-2xl border border-gray-200 bg-gray-50 overflow-hidden">
-                    <Image
-                        source={selectedImageSource}
-                        className="w-full h-80"
-                        resizeMode="contain"
-                    />
-                </View>
-
-                {/* ✅ 글씨 조금 키움 */}
-                <Text className="mt-3 text-center text-[17px] text-gray-700">
-                    현재 선택:{' '}
-                    <Text className="font-semibold text-teal-700">
-                        {currentRegion || '지역을 선택해주세요'}
-                    </Text>
-                </Text>
-
-                {/* 셀렉터 라벨 + 버튼 */}
-                <View className="mt-7">
-                    <Text className="mb-2 text-[18px] text-gray-500">거주 지역</Text>
-                    <TouchableOpacity
-                        className="border border-gray-300 rounded-2xl px-4 py-4 flex-row justify-between items-center"
-                        onPress={() => setOpen(true)}
-                        activeOpacity={0.85}
-                    >
-                        <Text
-                            className={`text-[16px] ${
-                                currentRegion ? 'text-gray-900' : 'text-gray-400'
-                            }`}
-                        >
+                    {/* 현재 선택 텍스트 */}
+                    <Text className="mt-3 text-center text-[17px] text-gray-700">
+                        현재 선택:{' '}
+                        <Text className="font-semibold text-teal-700">
                             {currentRegion || '지역을 선택해주세요'}
                         </Text>
-                        <Text className="text-gray-500 text-[18px]">▾</Text>
-                    </TouchableOpacity>
+                    </Text>
+
+                    {/* 셀렉터 라벨 + 버튼 */}
+                    <View className="mt-7">
+                        <Text className="mb-2 text-[18px] text-gray-500">거주 지역</Text>
+                        <TouchableOpacity
+                            className="border border-gray-300 rounded-2xl px-4 py-4 flex-row justify-between items-center"
+                            onPress={() => setOpen(true)}
+                            activeOpacity={0.85}
+                        >
+                            <Text
+                                className={`text-[16px] ${
+                                    currentRegion ? 'text-gray-900' : 'text-gray-400'
+                                }`}
+                            >
+                                {currentRegion || '지역을 선택해주세요'}
+                            </Text>
+                            <Text className="text-gray-500 text-[18px]">▾</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
             </View>
 
-            {/* 하단 버튼 */}
-            <View style={{ paddingBottom: insets.bottom + 10 }} className="px-6">
-                <PrimaryButton title="다음" onPress={onNext} disabled={!canNext} />
+            {/* 하단 버튼 - 가운데 + 최대 폭 고정 */}
+            <View
+                className="px-6"
+                style={{ paddingBottom: insets.bottom + 10 }}
+            >
+                <View
+                    style={{
+                        width: '100%',
+                        maxWidth: 480,
+                        alignSelf: 'center',
+                    }}
+                >
+                    <PrimaryButton title="다음" onPress={onNext} disabled={!canNext} />
+                </View>
             </View>
 
             {/* 지역 선택 모달 */}
@@ -135,11 +151,18 @@ export default function SignupRegionScreen({ navigation }) {
                     activeOpacity={1}
                     onPress={() => setOpen(false)}
                 >
-                    <View className="bg-white rounded-t-3xl pt-2 pb-4 px-4 max-h-[70%]">
+                    <View
+                        className="bg-white rounded-t-3xl pt-5 pb-7 px-5 max-h-[92%]"
+                        style={{
+                            width: '100%',
+                            maxWidth: 720,
+                            alignSelf: 'center',
+                        }}
+                    >
                         {/* 상단 핸들바 */}
-                        <View className="self-center w-10 h-1.5 rounded-full bg-gray-300 mb-3" />
+                        <View className="self-center w-12 h-1.5 rounded-full bg-gray-300 mb-4" />
 
-                        <Text className="text-[17px] font-semibold mb-3">
+                        <Text className="text-[20px] font-semibold mb-4">
                             거주 지역을 선택해주세요
                         </Text>
 
@@ -158,14 +181,14 @@ export default function SignupRegionScreen({ navigation }) {
                                     const isSelected = currentRegion === item;
                                     return (
                                         <TouchableOpacity
-                                            className={`py-3 flex-row items-center justify-between rounded-xl px-2 ${
+                                            className={`py-4 flex-row items-center justify-between rounded-xl px-2 ${
                                                 isSelected ? 'bg-teal-50' : 'bg-white'
                                             }`}
                                             onPress={() => handleSelect(item)}
                                             activeOpacity={0.8}
                                         >
                                             <Text
-                                                className={`text-[17px] ${
+                                                className={`text-[19px] ${
                                                     isSelected
                                                         ? 'text-teal-700 font-semibold'
                                                         : 'text-gray-900'
@@ -174,7 +197,7 @@ export default function SignupRegionScreen({ navigation }) {
                                                 {item}
                                             </Text>
                                             {isSelected ? (
-                                                <Text className="text-teal-600 text-[18px]">
+                                                <Text className="text-teal-600 text-[22px]">
                                                     ✓
                                                 </Text>
                                             ) : null}

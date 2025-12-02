@@ -1,5 +1,5 @@
 // src/screens/LoginScreen.js
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
     View,
     Text,
@@ -26,7 +26,11 @@ import * as AuthSession from 'expo-auth-session';
 
 WebBrowser.maybeCompleteAuthSession();
 
+// .env 에 정의한 Kakao REST API Key
 const KAKAO_REST_API_KEY = process.env.EXPO_PUBLIC_KAKAO_REST_API_KEY;
+
+// 🔹 Kakao Developers에 등록한 Redirect URI와 동일해야 함
+const NATIVE_SCHEME = 'silverbridge';
 
 // 전화번호 하이픈 포함 포맷
 function formatPhoneKR(digits) {
@@ -62,23 +66,38 @@ export default function LoginScreen({ navigation }) {
     // =========================
     // Kakao OAuth (access_token 플로우)
     // =========================
-    const redirectUri = useMemo(
-        () =>
-            AuthSession.makeRedirectUri({
-                useProxy: true,
-            }),
-        [],
-    );
-    console.log('[KAKAO] redirectUri =', redirectUri);
 
-    const kakaoAuthUrl = useMemo(() => {
-        const params = new URLSearchParams({
-            response_type: 'token',
-            client_id: KAKAO_REST_API_KEY,
-            redirect_uri: redirectUri,
-        }).toString();
-        return `https://kauth.kakao.com/oauth/authorize?${params}`;
-    }, [redirectUri]);
+    // 1) redirectUri (Expo 프록시 URL을 직접 지정)
+    const redirectUri = useMemo(() => {
+        const uri = AuthSession.makeRedirectUri({
+            scheme: NATIVE_SCHEME,  // silverbridge
+            path: 'oauth',          // => silverbridge://oauth
+            useProxy: false,
+        });
+        console.log('[KAKAO] redirectUri =', uri);
+        return uri;
+    }, []);
+
+
+    // 2) Kakao OAuth 엔드포인트
+    const kakaoDiscovery = {
+        authorizationEndpoint: 'https://kauth.kakao.com/oauth/authorize',
+    };
+
+    // 3) AuthRequest 훅
+    const [request, _response, promptAsync] = AuthSession.useAuthRequest(
+        {
+            clientId: KAKAO_REST_API_KEY,
+            redirectUri,                               // 위의 silverbridge://oauth
+            responseType: AuthSession.ResponseType.Token, // access_token 바로 받는 방식 유지
+            scopes: [],
+        },
+        kakaoDiscovery,
+        {
+            useProxy: false,  // 🔹 명시적으로 프록시 사용 안 함
+        },
+    );
+
     // =========================
     // 🔥 일반 로그인: 역할에 따라 분기
     // =========================
@@ -132,10 +151,8 @@ export default function LoginScreen({ navigation }) {
 
             if (role === 'ROLE_NOK') {
                 if (connectedElderId) {
-                    // 이미 연결된 보호자 → 바로 보호자 메인
                     firstRoute = 'GuardianMain';
                 } else {
-                    // 아직 연결 안 된 보호자 → 연결 화면
                     firstRoute = 'GuardianConnect';
                 }
             }
@@ -163,18 +180,22 @@ export default function LoginScreen({ navigation }) {
     };
 
     // =========================
-    // 카카오 로그인 (access_token 플로우)
+    // 카카오 로그인 (useAuthRequest + promptAsync)
     // =========================
     const onKakaoLogin = async () => {
         if (kakaoSubmitting) return;
 
         try {
+            if (!request) {
+                Alert.alert('오류', '카카오 로그인 준비가 아직 끝나지 않았습니다.');
+                return;
+            }
+
             setKakaoSubmitting(true);
 
-            const result = await AuthSession.startAsync({
-                authUrl: kakaoAuthUrl,
-            });
-            console.log('[KAKAO] AuthSession result =', result);
+            // 🔹 카카오 로그인 화면 열기 (프록시 X)
+            const result = await promptAsync({ useProxy: false });
+            console.log('[KAKAO] promptAsync result =', result);
 
             if (result.type !== 'success') {
                 if (result.type === 'dismiss' || result.type === 'cancel') {
@@ -185,6 +206,7 @@ export default function LoginScreen({ navigation }) {
                 return;
             }
 
+            // 🔹 access_token 바로 받기
             const kakaoAccessToken = result.params?.access_token;
             if (!kakaoAccessToken) {
                 Alert.alert('오류', '카카오 액세스 토큰을 받지 못했습니다.');
@@ -193,45 +215,28 @@ export default function LoginScreen({ navigation }) {
 
             console.log('[KAKAO] accessToken =', kakaoAccessToken);
 
-            // 🔹 백엔드 카카오 로그인 → 우리 서비스 토큰 + 유저 정보
-            const res = await kakaoSocialLogin(kakaoAccessToken);
-            console.log('[KAKAO LOGIN RES]', res);
+            // 🔹 우리 서버로 소셜 로그인 요청 (기존 kakaoSocialLogin 그대로 사용)
+            const socialResult = await kakaoSocialLogin(kakaoAccessToken);
+            console.log('[KAKAO LOGIN RESULT]', socialResult);
 
-            const accessToken = res?.tokens?.accessToken;
-            const refreshToken = res?.tokens?.refreshToken;
-            await setAuth({ accessToken, refreshToken });
-
-            let user = res?.user;
-            if (!user && accessToken && accessToken.split('.').length === 3) {
-                const claims = parseJwt(accessToken);
-                user = {
-                    id: claims?.id ?? claims?.userId ?? claims?.uid ?? claims?.sub,
-                    name: claims?.name ?? '사용자',
-                    phoneNumber: claims?.phoneNumber,
-                    role: claims?.role || claims?.auth || claims?.authorities,
-                };
+            if (socialResult.registered) {
+                // ✅ 기존 회원
+                const user = socialResult.user;
+                const targetRoot = getTargetRoot(user?.role);
+                navigation.dispatch(
+                    CommonActions.reset({
+                        index: 0,
+                        routes: [{ name: targetRoot }],
+                    }),
+                );
+                Alert.alert('안내', '카카오 로그인에 성공했습니다.');
+            } else {
+                // ✅ 신규 회원
+                navigation.navigate('Signup', {
+                    mode: 'social',
+                    tempToken: socialResult.tempToken,
+                });
             }
-
-            const normalized = normalizeUser(
-                user || { name: '사용자' },
-            );
-            await setUser(normalized);
-
-            try {
-                await ensureUserFromToken();
-            } catch {}
-
-            // 🔹 카카오 로그인도 동일하게 역할별 분기
-            const targetRoot = getTargetRoot(normalized.role);
-
-            navigation.dispatch(
-                CommonActions.reset({
-                    index: 0,
-                    routes: [{ name: targetRoot }],
-                }),
-            );
-
-            Alert.alert('안내', '카카오 로그인에 성공했습니다.');
         } catch (e) {
             console.log('[KAKAO LOGIN ERROR]', e);
             const msg =
@@ -243,6 +248,10 @@ export default function LoginScreen({ navigation }) {
             setKakaoSubmitting(false);
         }
     };
+
+
+
+    console.log('[KAKAO KEY]', KAKAO_REST_API_KEY);
 
     // =========================
     // UI
@@ -275,7 +284,11 @@ export default function LoginScreen({ navigation }) {
                             placeholder="휴대폰 번호 입력"
                             placeholderTextColor="#A0A0A0"
                             value={phone}
-                            onChangeText={setPhone}
+                            onChangeText={(t) => {
+                                const digits = (t || '').replace(/\D/g, '');
+                                const formatted = formatPhoneKR(digits);
+                                setPhone(formatted);
+                            }}
                             keyboardType="phone-pad"
                             inputMode="tel"
                             autoComplete="tel"

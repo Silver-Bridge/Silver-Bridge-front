@@ -14,21 +14,24 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getTodayScheduleApi, getAssistantSuggestionsApi } from '../shared/api/home';
+import moment from 'moment';
 
-// 시간 파싱(ISO & "YYYY-MM-DD HH:mm:ss" 모두 대응)
-function parseDateLoose(s) {
+// ✅ 오늘 일정은 calendar API에서 날짜 기준으로 가져오도록 변경
+import { getSchedulesByDateApi } from '../shared/api/calendar';
+// ✅ 어시스턴트 제안은 기존 home API 그대로 사용
+import { getAssistantSuggestionsApi } from '../shared/api/home';
+import {useAlarmPolling} from "../shared/hooks/useAlarmPolling";
+
+// 🔹 타임존(예: +09:00) 유지해서 파싱
+function parseDateKeepOffset(s) {
     if (!s) return null;
-    let t = String(s).trim().replace(' ', 'T');
-    t = t.replace(/\.\d{6}$/, (m) => '.' + m.slice(1, 4)); // .123456 -> .123
-    const d = new Date(t);
-    return isNaN(d.getTime()) ? null : d;
+    const m = moment.parseZone(String(s));
+    return m.isValid() ? m : null;
 }
-function fmtHHmm(d) {
-    const hh = String(d.getHours()).padStart(2, '0');
-    const mm = String(d.getMinutes()).padStart(2, '0');
-    return `${hh}:${mm}`;
+function fmtHHmmMoment(m) {
+    return m.format('HH:mm');
 }
+
 function useResponsiveGaps() {
     const { width } = useWindowDimensions();
     const compact = width < 380;
@@ -117,13 +120,7 @@ function TopBar({ name, gender, ui }) {
                         {name ? `${name}님` : '사용자님'}
                     </Text>
                 </View>
-                <View className="flex-row items-center">
-                    <TouchableOpacity
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    >
-                        <Ionicons name="notifications-outline" size={iconSz} color="#111827" />
-                    </TouchableOpacity>
-                </View>
+
             </View>
         </View>
     );
@@ -148,12 +145,17 @@ function SectionCard({ children, className = '', ui }) {
 function ScheduleRow({ item, done, onToggle }) {
     const accent = item?.color && item.color !== 'black' ? item.color : '#10b981';
 
-    const startD = parseDateLoose(item.start);
-    const endD = parseDateLoose(item.end);
+    const startM = parseDateKeepOffset(item.start);
+    const endM = parseDateKeepOffset(item.end);
+
     const timeText =
-        startD && endD
-            ? `${fmtHHmm(startD)} ~ ${fmtHHmm(endD)}`
-            : `${item.start || ''}${item.end ? ` ~ ${item.end}` : ''}`;
+        startM && endM
+            ? `${fmtHHmmMoment(startM)} ~ ${fmtHHmmMoment(endM)}`
+            : startM
+                ? fmtHHmmMoment(startM)
+                : endM
+                    ? fmtHHmmMoment(endM)
+                    : '';
 
     return (
         <View
@@ -315,7 +317,6 @@ function Assistant({ suggestions, loading, error, onRetry, ui }) {
                 >
                     <Image
                         source={require('../../assets/logo.png')}
-                        // png 쓸 거면 위 require를 logo.png로만 바꾸면 됨
                         style={{ width: 64, height: 64 }}
                         resizeMode="contain"
                     />
@@ -383,8 +384,7 @@ function Assistant({ suggestions, loading, error, onRetry, ui }) {
 export default function HomeScreen() {
     const ui = useResponsiveGaps();
     const [name, setName] = useState('');
-    const [userId, setUserId] = useState(null);
-    const [gender, setGender] = useState(null); // 🔹 성별 상태 추가
+    const [gender, setGender] = useState(null); // 🔹 성별 상태
     const [schedules, setSchedules] = useState([]);
     const [suggestions, setSuggestions] = useState([]);
     const [loadingSch, setLoadingSch] = useState(true);
@@ -393,40 +393,52 @@ export default function HomeScreen() {
     const [errSug, setErrSug] = useState('');
     const [refreshing, setRefreshing] = useState(false);
 
-    // USER_INFO에서 이름/ID/성별
+
+
+    // USER_INFO에서 이름/성별
     useEffect(() => {
         (async () => {
             try {
                 const raw = await AsyncStorage.getItem('USER_INFO');
                 const u = raw ? JSON.parse(raw) : null;
                 setName(u?.name || '');
-                const id = u?.id ?? u?.userId ?? u?.uid ?? u?.sub ?? null;
-                setUserId(id);
 
-                // 🔹 gender 필드 추출 (키 이름은 실제 구조에 맞춰 자유롭게 수정)
                 const g = u?.gender ?? u?.sex ?? u?.genderType ?? null;
                 setGender(g);
-
-                console.log('[HC] USER_INFO =', u, '=> userId =', id, 'gender =', g);
-            } catch {}
+            } catch (e) {
+                console.log('[HC] USER_INFO load error:', e?.message || e);
+            }
         })();
     }, []);
 
+    // ✅ 오늘 날짜 문자열(YYYY-MM-DD) 생성
+    const getTodayDateString = () => {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    };
+
+    // ✅ /api/calendar/schedules?date=YYYY-MM-DD 로 오늘 일정 조회
     const fetchSchedules = useCallback(async () => {
         setErrSch('');
         setLoadingSch(true);
         try {
-            if (!userId) {
-                setSchedules([]);
-                return;
-            }
-            const items = await getTodayScheduleApi(userId);
-            setSchedules(items);
-            if (items.length === 0) {
-                console.log(
-                    '[HC] TODAY SCHEDULE EMPTY — 서버엔 정상/데이터 없음 가능'
-                );
-            }
+            const dateStr = getTodayDateString();
+            const list = await getSchedulesByDateApi({ date: dateStr });
+
+            const mapped = (Array.isArray(list) ? list : []).map((item) => ({
+                id: item.id,
+                title: item.title,
+                // 🔹 타임존 있는 문자열 그대로 보관
+                start: item.start_at,
+                end: item.end_at,
+                place: item.location || item.place || '',
+                color: item.color || '#10b981',
+            }));
+
+            setSchedules(mapped);
         } catch (e) {
             setErrSch(
                 e?.__normalized?.message || e?.message || '일정 로드 실패'
@@ -434,14 +446,14 @@ export default function HomeScreen() {
         } finally {
             setLoadingSch(false);
         }
-    }, [userId]);
+    }, []);
 
     const fetchSuggestions = useCallback(async () => {
         setErrSug('');
         setLoadingSug(true);
         try {
             const list = await getAssistantSuggestionsApi();
-            setSuggestions(list);
+            setSuggestions(Array.isArray(list) ? list : []);
         } catch (e) {
             setErrSug(
                 e?.__normalized?.message || e?.message || '추천 로드 실패'

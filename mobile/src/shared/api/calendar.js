@@ -3,21 +3,18 @@ import client from './client';
 
 const prefix = '/calendar';   // baseURL이 /api 이므로 => /api/calendar...
 
+// 🔧 LocalDateTime에 맞게 문자열 끝의 타임존/오프셋 제거
+function toLocalDateTimeString(str) {
+    if (!str) return str;
+    // 예: "2025-11-25T22:30:00+09:00" -> "2025-11-25T22:30:00"
+    //     "2025-11-25T22:30:00Z"      -> "2025-11-25T22:30:00"
+    return str.replace(/([+-]\d{2}:?\d{2}|Z)$/,'');
+}
+
 /**
  * 1) 특정 월의 일정이 있는 날짜 목록 조회
  *
  * GET /api/calendar?year=2025&month=11
- *
- * 백엔드 응답:
- * {
- *   "body": [
- *     { "date": "2025-11-12" },
- *     { "date": "2025-11-18" },
- *     ...
- *   ]
- * }
- *
- * ⚠️ userId 필요 없음 (Authentication 기반 elderId 자동 결정)
  */
 export async function getCalendarDatesApi({ year, month }) {
     const res = await client.get(prefix, {
@@ -37,23 +34,6 @@ export async function getCalendarDatesApi({ year, month }) {
  * 2) 특정 날짜의 상세 일정 목록 조회
  *
  * GET /api/calendar/schedules?date=2025-11-12
- *
- * 백엔드 응답:
- * {
- *   "body": [
- *     {
- *       "id": 1,
- *       "title": "...",
- *       "description": "...",
- *       "start_at": "...",
- *       "end_at": "...",
- *       ...
- *     },
- *     ...
- *   ]
- * }
- *
- * ⚠️ userId 필요 없음 (Authentication 기반 elderId 자동 결정)
  */
 export async function getSchedulesByDateApi({ date }) {
     const res = await client.get(`${prefix}/schedules`, {
@@ -72,15 +52,19 @@ export async function getSchedulesByDateApi({ date }) {
  * body: {
  *   "title": "...",
  *   "description": "...",
- *   "start_at": "...",
- *   "end_at": "...",
+ *   "start_at": "2025-11-25T22:30:00",
+ *   "end_at":   "2025-11-25T23:30:00",
  *   ...
  * }
- *
- * ⚠️ userId 필요 없음
  */
 export async function createScheduleApi({ payload }) {
-    const res = await client.post(`${prefix}/add`, payload);
+    const data = {
+        ...payload,
+        start_at: toLocalDateTimeString(payload.start_at),
+        end_at: toLocalDateTimeString(payload.end_at),
+    };
+
+    const res = await client.post(`${prefix}/add`, data);
     return res?.data;
 }
 
@@ -88,13 +72,17 @@ export async function createScheduleApi({ payload }) {
  * 4) 일정 수정
  *
  * PUT /api/calendar/schedule/{scheduleId}
- *
- * ⚠️ userId 필요 없음
  */
 export async function updateScheduleApi({ scheduleId, payload }) {
+    const data = {
+        ...payload,
+        start_at: toLocalDateTimeString(payload.start_at),
+        end_at: toLocalDateTimeString(payload.end_at),
+    };
+
     const res = await client.put(
         `${prefix}/schedule/${scheduleId}`,
-        payload,
+        data,
     );
     return res?.data;
 }
@@ -103,10 +91,19 @@ export async function updateScheduleApi({ scheduleId, payload }) {
  * 5) 일정 삭제
  *
  * DELETE /api/calendar/schedule/{scheduleId}
- *
- * ⚠️ userId 필요 없음
  */
 export async function deleteScheduleApi({ scheduleId }) {
     const res = await client.delete(`${prefix}/schedule/${scheduleId}`);
     return res?.data;
+}
+
+/**
+ * 6) 알람 체크
+ *
+ * GET /api/calendar/alarm/check
+ */
+export async function checkCalendarAlarm() {
+    const res = await client.get(`${prefix}/alarm/check`);
+    // 백엔드가 { body: [...] } 형태로 준다고 가정
+    return res?.data?.body || [];
 }
