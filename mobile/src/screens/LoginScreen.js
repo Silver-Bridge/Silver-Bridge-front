@@ -25,7 +25,7 @@ import {
 import { login as kakaoNativeLogin } from '@react-native-seoul/kakao-login';
 
 // .env 에 정의한 Kakao REST API Key (참고용 로그만)
-const KAKAO_REST_API_KEY = process.env.EXPO_PUBLIC_KAKAO_REST_API_KEY;
+const KAKAO_REST_API_KEY = 'fda22854e56010ae0a8129a6acb4b54d';
 
 // 전화번호 하이픈 포함 포맷
 function formatPhoneKR(digits) {
