@@ -21,16 +21,11 @@ import {
     parseJwt,
 } from '../shared/auth/token';
 
-import * as WebBrowser from 'expo-web-browser';
-import * as AuthSession from 'expo-auth-session';
+// 🔹 카카오 네이티브 SDK
+import { login as kakaoNativeLogin } from '@react-native-seoul/kakao-login';
 
-WebBrowser.maybeCompleteAuthSession();
-
-// .env 에 정의한 Kakao REST API Key
+// .env 에 정의한 Kakao REST API Key (참고용 로그만)
 const KAKAO_REST_API_KEY = process.env.EXPO_PUBLIC_KAKAO_REST_API_KEY;
-
-// 🔹 Kakao Developers에 등록한 Redirect URI와 동일해야 함
-const NATIVE_SCHEME = 'silverbridge';
 
 // 전화번호 하이픈 포함 포맷
 function formatPhoneKR(digits) {
@@ -62,41 +57,6 @@ export default function LoginScreen({ navigation }) {
     const getTargetRoot = (role) => {
         return role === 'ROLE_NOK' ? 'GuardianMain' : 'Main';
     };
-
-    // =========================
-    // Kakao OAuth (access_token 플로우)
-    // =========================
-
-    // 1) redirectUri (Expo 프록시 URL을 직접 지정)
-    const redirectUri = useMemo(() => {
-        const uri = AuthSession.makeRedirectUri({
-            scheme: NATIVE_SCHEME,  // silverbridge
-            path: 'oauth',          // => silverbridge://oauth
-            useProxy: false,
-        });
-        console.log('[KAKAO] redirectUri =', uri);
-        return uri;
-    }, []);
-
-
-    // 2) Kakao OAuth 엔드포인트
-    const kakaoDiscovery = {
-        authorizationEndpoint: 'https://kauth.kakao.com/oauth/authorize',
-    };
-
-    // 3) AuthRequest 훅
-    const [request, _response, promptAsync] = AuthSession.useAuthRequest(
-        {
-            clientId: KAKAO_REST_API_KEY,
-            redirectUri,                               // 위의 silverbridge://oauth
-            responseType: AuthSession.ResponseType.Token, // access_token 바로 받는 방식 유지
-            scopes: [],
-        },
-        kakaoDiscovery,
-        {
-            useProxy: false,  // 🔹 명시적으로 프록시 사용 안 함
-        },
-    );
 
     // =========================
     // 🔥 일반 로그인: 역할에 따라 분기
@@ -180,42 +140,25 @@ export default function LoginScreen({ navigation }) {
     };
 
     // =========================
-    // 카카오 로그인 (useAuthRequest + promptAsync)
+    // ✅ 카카오 로그인 (네이티브 SDK 사용)
     // =========================
     const onKakaoLogin = async () => {
         if (kakaoSubmitting) return;
 
         try {
-            if (!request) {
-                Alert.alert('오류', '카카오 로그인 준비가 아직 끝나지 않았습니다.');
-                return;
-            }
-
             setKakaoSubmitting(true);
 
-            // 🔹 카카오 로그인 화면 열기 (프록시 X)
-            const result = await promptAsync({ useProxy: false });
-            console.log('[KAKAO] promptAsync result =', result);
+            // 🔹 카카오 네이티브 SDK 로그인
+            const token = await kakaoNativeLogin();
+            console.log('[KAKAO NATIVE TOKEN]', token);
 
-            if (result.type !== 'success') {
-                if (result.type === 'dismiss' || result.type === 'cancel') {
-                    Alert.alert('취소', '카카오 로그인이 취소되었습니다.');
-                } else {
-                    Alert.alert('오류', '카카오 로그인에 실패했습니다.');
-                }
-                return;
-            }
-
-            // 🔹 access_token 바로 받기
-            const kakaoAccessToken = result.params?.access_token;
+            const kakaoAccessToken = token?.accessToken;
             if (!kakaoAccessToken) {
                 Alert.alert('오류', '카카오 액세스 토큰을 받지 못했습니다.');
                 return;
             }
 
-            console.log('[KAKAO] accessToken =', kakaoAccessToken);
-
-            // 🔹 우리 서버로 소셜 로그인 요청 (기존 kakaoSocialLogin 그대로 사용)
+            // 🔹 우리 서버로 소셜 로그인 요청
             const socialResult = await kakaoSocialLogin(kakaoAccessToken);
             console.log('[KAKAO LOGIN RESULT]', socialResult);
 
@@ -223,6 +166,10 @@ export default function LoginScreen({ navigation }) {
                 // ✅ 기존 회원
                 const user = socialResult.user;
                 const targetRoot = getTargetRoot(user?.role);
+
+                // 토큰/유저 정보가 응답에 있다면 여기서 setAuth, setUser 처리해도 됨
+                // (지금 kakaoSocialLogin 응답 구조에 맞게 필요하면 추가)
+
                 navigation.dispatch(
                     CommonActions.reset({
                         index: 0,
@@ -231,7 +178,7 @@ export default function LoginScreen({ navigation }) {
                 );
                 Alert.alert('안내', '카카오 로그인에 성공했습니다.');
             } else {
-                // ✅ 신규 회원
+                // ✅ 신규 회원 – 회원가입 플로우로
                 navigation.navigate('Signup', {
                     mode: 'social',
                     tempToken: socialResult.tempToken,
@@ -248,8 +195,6 @@ export default function LoginScreen({ navigation }) {
             setKakaoSubmitting(false);
         }
     };
-
-
 
     console.log('[KAKAO KEY]', KAKAO_REST_API_KEY);
 
