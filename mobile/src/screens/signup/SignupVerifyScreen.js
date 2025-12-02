@@ -18,7 +18,7 @@ function formatPhoneKR(digits) {
 
 export default function SignupVerifyScreen({ navigation }) {
     const { data, setData } = useSignup();
-
+    const isSocial = data.signupMode === 'social';
     const [carrierOpen, setCarrierOpen] = useState(false);
     const [carriers, setCarriers] = useState(CARRIERS);
     const [requested, setRequested] = useState(false);

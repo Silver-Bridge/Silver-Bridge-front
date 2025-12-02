@@ -1,7 +1,6 @@
 // mobile/src/navigation/SignupStack.js
 import React, { useEffect } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { useRoute } from '@react-navigation/native';
 
 import SignupTypeScreen from '../screens/signup/SignupTypeScreen';
 import SignupNameScreen from '../screens/signup/SignupNameScreen';
@@ -16,19 +15,27 @@ import { useSignup } from '../screens/signup/SignupContext';
 const Stack = createNativeStackNavigator();
 
 // 🔹 실제 스택 (여기서 route.params로 social 모드 세팅)
-function SignupStackInner() {
-    const route = useRoute();
+function SignupStackInner({ route }) {
     const { params } = route || {};
     const { setData, resetSignup } = useSignup();
 
     useEffect(() => {
+        // 스택 진입할 때마다 기본 상태 초기화
+        resetSignup();
+
         if (params?.mode === 'social' && params?.tempToken) {
-            // 카카오 신규 회원가입으로 들어온 경우
-            resetSignup();
-            setData(s => ({
+            // 🔥 카카오 신규 회원가입 플로우
+            setData((s) => ({
                 ...s,
-                signupMode: 'social',
+                signupMode: 'social',          // ✅ 소셜 모드
                 socialTempToken: params.tempToken,
+            }));
+        } else {
+            // 🔹 일반 회원가입
+            setData((s) => ({
+                ...s,
+                signupMode: 'normal',
+                socialTempToken: null,
             }));
         }
     }, [params, resetSignup, setData]);
@@ -45,11 +52,12 @@ function SignupStackInner() {
     );
 }
 
-export default function SignupStack() {
-    // 🔹 여기서 한 번만 Provider/Wrapper 감싸기
+export default function SignupStack({ route }) {
+    // 🔹 여기서 한 번만 Provider/Wrapper 감싸고
+    //    바깥 네비게이션에서 받은 route를 그대로 안쪽으로 넘겨줌
     return (
         <SignupWrapper>
-            <SignupStackInner />
+            <SignupStackInner route={route} />
         </SignupWrapper>
     );
 }

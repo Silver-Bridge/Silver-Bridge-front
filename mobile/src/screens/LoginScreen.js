@@ -148,7 +148,7 @@ export default function LoginScreen({ navigation }) {
         try {
             setKakaoSubmitting(true);
 
-            // 🔹 카카오 네이티브 SDK 로그인
+            // 🔹 1) 카카오 네이티브 SDK 로그인
             const token = await kakaoNativeLogin();
             console.log('[KAKAO NATIVE TOKEN]', token);
 
@@ -158,17 +158,15 @@ export default function LoginScreen({ navigation }) {
                 return;
             }
 
-            // 🔹 우리 서버로 소셜 로그인 요청
+            // 🔹 2) 우리 서버로 소셜 로그인 요청
             const socialResult = await kakaoSocialLogin(kakaoAccessToken);
             console.log('[KAKAO LOGIN RESULT]', socialResult);
 
-            if (socialResult.registered) {
-                // ✅ 기존 회원
-                const user = socialResult.user;
-                const targetRoot = getTargetRoot(user?.role);
-
-                // 토큰/유저 정보가 응답에 있다면 여기서 setAuth, setUser 처리해도 됨
-                // (지금 kakaoSocialLogin 응답 구조에 맞게 필요하면 추가)
+            // ✅ 기존 회원: kakaoSocialLogin 안에서 이미 setAuth / setUser 처리됨
+            if (socialResult.mode === 'EXISTING' || socialResult.registered) {
+                const user = socialResult.user || {};
+                const role = user.role;
+                const targetRoot = getTargetRoot(role);
 
                 navigation.dispatch(
                     CommonActions.reset({
@@ -177,13 +175,23 @@ export default function LoginScreen({ navigation }) {
                     }),
                 );
                 Alert.alert('안내', '카카오 로그인에 성공했습니다.');
-            } else {
-                // ✅ 신규 회원 – 회원가입 플로우로
+                return;
+            }
+
+            // ✅ 신규 회원: tempToken 들고 회원가입 플로우로
+            if (socialResult.mode === 'NEW' && socialResult.tempToken) {
                 navigation.navigate('Signup', {
                     mode: 'social',
                     tempToken: socialResult.tempToken,
                 });
+                return;
             }
+
+            // 혹시 모를 예외 상황
+            Alert.alert(
+                '오류',
+                '카카오 로그인 결과를 처리하는 중 문제가 발생했습니다.\n다시 시도해 주세요.',
+            );
         } catch (e) {
             console.log('[KAKAO LOGIN ERROR]', e);
             const msg =

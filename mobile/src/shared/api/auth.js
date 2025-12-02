@@ -78,7 +78,6 @@ export async function verifyCodeApi({ phoneNumber, code }) {
  * 프론트에서 kakaoAccessToken을 받아서 서버로 전달
  */
 export async function kakaoSocialLogin(kakaoAccessToken) {
-    // 백엔드: /users/social/kakao?accessToken=...
     const res = await client.post(
         `${prefix}/social/kakao`,
         null,
@@ -89,50 +88,82 @@ export async function kakaoSocialLogin(kakaoAccessToken) {
 
     const data = res?.data || {};
 
-    // ✔ 상황 A: 기존 회원 (registered = true) → 바로 JWT + 유저 정보 세팅
-    if (data.registered) {
-        const token = data.token || {};
-        const user = data.user || {};
+    // 🔹 백엔드가 TokenDto 를 그대로 반환한다고 가정
+    const access =
+        data.accessToken ??
+        data.token?.accessToken ??
+        null;
 
-        const access = token.accessToken;
-        const refresh = token.refreshToken;
+    const refresh =
+        data.refreshToken ??
+        data.token?.refreshToken ??
+        null;
 
-        if (!access || !refresh) {
-            throw new Error('서버에서 유효한 토큰을 받지 못했습니다.');
+    if (!access) {
+        throw new Error('서버에서 accessToken을 받지 못했습니다.');
+    }
+
+    // 🔍 JWT 파싱해서 임시/정식 토큰 구분 (aud 기준)
+    const claims = parseJwt(access);
+    console.log('[KAKAO JWT CLAIMS]', claims);
+
+    const aud = claims?.aud;
+
+    // =========================
+    // 🆕 상황 B: 신규 회원 (임시 토큰: aud = temp-user)
+    // =========================
+    if (aud === 'temp-user') {
+        console.log('[KAKAO LOGIN] new user, tempToken =', access);
+
+        // 👉 여기서는 setAuth / setUser 하지 않음
+        //    Signup 화면에서 completeSocialRegister(tempToken, payload) 호출할 때 사용
+        return {
+            mode: 'NEW',
+            registered: false,
+            tempToken: access, // 임시 JWT 자체를 tempToken 으로 넘김
+        };
+    }
+
+    // =========================
+    // ✅ 상황 A: 기존 회원 (정식 토큰: aud = access)
+    // =========================
+    if (aud === 'access') {
+        if (!refresh) {
+            throw new Error('기존 회원인데 refreshToken이 없습니다.');
         }
 
         // 1) 토큰 저장
         await setAuth({ accessToken: access, refreshToken: refresh });
 
-        // 2) 유저 저장
+        // 2) 유저 정보 저장: /users/me 호출 (실패 시 클레임으로 fallback)
+        let user;
+        try {
+            user = await getMe();
+        } catch (e) {
+            user = {
+                id: claims.id ?? claims.userId ?? claims.uid ?? claims.sub,
+                name: claims.nickname ?? claims.name ?? '사용자',
+                phoneNumber: claims.phoneNumber ?? null,
+                role: claims.role || claims.auth,
+            };
+        }
+
         const normalized = normalizeUser(user);
         await setUser(normalized);
 
         console.log('[KAKAO LOGIN] existing USER_INFO =', normalized);
 
         return {
-            mode: 'EXISTING',          // 기존 회원
+            mode: 'EXISTING',
             registered: true,
             tokens: { accessToken: access, refreshToken: refresh },
             user: normalized,
         };
     }
 
-    // ✔ 상황 B: 신규 회원 (registered = false) → tempToken만 받고 추가 회원가입 필요
-    const tempToken = data.tempToken;
-    if (!tempToken) {
-        throw new Error('신규 회원인데 tempToken이 없습니다.');
-    }
-
-    console.log('[KAKAO LOGIN] new user, tempToken =', tempToken);
-
-    // 여기서는 아직 setAuth / setUser 안 함
-    // → 추가 정보 입력 화면에서 /users/social/register-final 호출 후 최종 로그인 처리
-    return {
-        mode: 'NEW',             // 신규 회원
-        registered: false,
-        tempToken,
-    };
+    // 그 외 이상한 aud 값 (예방용)
+    console.warn('[KAKAO LOGIN] 알 수 없는 aud 값:', aud);
+    throw new Error('유효하지 않은 카카오 로그인 토큰입니다.');
 }
 
 // 최하단 근처에 추가
