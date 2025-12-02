@@ -51,7 +51,13 @@
       "favicon": "./assets/logo.png"
     },
     "plugins": [
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "@react-native-seoul/kakao-login",
+        {
+          "kakaoAppKey": "758a50949445b929297f5902f2428f8f"
+        }
+      ]
     ],
     "extra": {
       "eas": {
