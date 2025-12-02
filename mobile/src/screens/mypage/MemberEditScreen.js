@@ -1,6 +1,6 @@
 // mobile/src/screens/mypage/MemberEditScreen.js
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     View,
     Text,
@@ -9,7 +9,9 @@ import {
     Alert,
     ScrollView,
     Platform,
-    KeyboardAvoidingView, // ✅ 추가
+    KeyboardAvoidingView,
+    Keyboard,                // ✅ 추가
+    TouchableWithoutFeedback // ✅ 추가
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -23,6 +25,49 @@ const USER_INFO_KEY = 'USER_INFO';
 const isValidPassword = (pw) =>
     /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,20}$/.test(pw);
 
+/** 공통: 사용자 정보 row */
+function UserInfoRow({ label, value }) {
+    return (
+        <View className="mb-3">
+            <Text className="text-[11px] text-gray-500 mb-1">{label}</Text>
+            <Text className="text-[15px] font-semibold text-gray-900">
+                {value || '정보 없음'}
+            </Text>
+        </View>
+    );
+}
+
+/** 공통: 비밀번호 입력 필드 */
+function PasswordInput({
+                           label,
+                           value,
+                           onChangeText,
+                           placeholder,
+                           error,
+                       }) {
+    return (
+        <View className="mt-4 w-full">
+            <Text className="mb-2 text-[13px] text-gray-700">{label}</Text>
+            <TextInput
+                className={`border rounded-xl px-4 py-3 text-[15px] bg-white ${
+                    error ? 'border-red-500' : 'border-gray-300'
+                }`}
+                placeholder={placeholder}
+                placeholderTextColor="#A0A0A0"
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                value={value}
+                onChangeText={onChangeText}
+                blurOnSubmit={false} // 포커스 유지 -> 키보드 안 닫히게
+            />
+            {!!error && (
+                <Text className="text-[11px] text-red-500 mt-1">{error}</Text>
+            )}
+        </View>
+    );
+}
+
 export default function MemberEditScreen() {
     const navigation = useNavigation();
     const { data: signupData = {}, setData } = useSignup() || {};
@@ -35,7 +80,7 @@ export default function MemberEditScreen() {
     });
 
     // 비밀번호 입력 상태
-    const [oldPassword, setOldPassword] = useState('');
+    const [oldPassword, setOldPassword] = useState(''); // == currentPassword
     const [newPassword, setNewPassword] = useState('');
     const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -49,7 +94,7 @@ export default function MemberEditScreen() {
         newPassword === newPasswordConfirm &&
         !isSubmitting;
 
-    // ✅ USER_INFO 에서 실제 정보 불러오기
+    // USER_INFO 에서 실제 정보 불러오기
     useEffect(() => {
         (async () => {
             try {
@@ -69,7 +114,18 @@ export default function MemberEditScreen() {
         })();
     }, []);
 
-    // ✅ 비밀번호 변경
+    // 현재 비밀번호 입력 핸들러 (입력 시 에러 초기화)
+    const handleOldPasswordChange = useCallback(
+        (text) => {
+            setOldPassword(text);
+            if (oldPasswordError) {
+                setOldPasswordError(null);
+            }
+        },
+        [oldPasswordError],
+    );
+
+    // 비밀번호 변경
     const handleChangePassword = async () => {
         if (!canChange) return;
 
@@ -77,7 +133,10 @@ export default function MemberEditScreen() {
             setIsSubmitting(true);
             setOldPasswordError(null);
 
-            await changePassword({ oldPassword, newPassword });
+            await changePassword({
+                currentPassword: oldPassword,
+                newPassword: newPassword,
+            });
 
             if (setData) {
                 setData((s) => ({ ...s, password: newPassword }));
@@ -96,164 +155,125 @@ export default function MemberEditScreen() {
         }
     };
 
-    const UserInfoRow = ({ label, value }) => (
-        <View className="mb-3">
-            <Text className="text-[11px] text-gray-500 mb-1">{label}</Text>
-            <Text className="text-[15px] font-semibold text-gray-900">
-                {value || '정보 없음'}
-            </Text>
-        </View>
-    );
-
-    /**
-     * 🔑 TextInput을 "uncontrolled"로 사용
-     *  - value prop ❌
-     *  - defaultValue + onChangeText 로 내부 텍스트는 RN이 관리
-     *  - 우리 쪽은 state에 마지막 값만 저장해서 submit에 사용
-     */
-    const PasswordInput = ({
-                               label,
-                               stateSetter,
-                               placeholder,
-                               error,
-                               isCurrent = false,
-                           }) => (
-        <View className="mt-4 w-full">
-            <Text className="mb-2 text-[13px] text-gray-700">{label}</Text>
-            <TextInput
-                className={`border rounded-xl px-4 py-3 text-[15px] bg-white ${
-                    error ? 'border-red-500' : 'border-gray-300'
-                }`}
-                placeholder={placeholder}
-                placeholderTextColor="#A0A0A0"
-                secureTextEntry
-                autoCapitalize="none"
-                autoCorrect={false}
-                onChangeText={(text) => {
-                    stateSetter(text);
-                    if (isCurrent && oldPasswordError) {
-                        setOldPasswordError(null);
-                    }
-                }}
-            />
-            {!!error && (
-                <Text className="text-[11px] text-red-500 mt-1">{error}</Text>
-            )}
-        </View>
-    );
-
     return (
         <SafeAreaView className="flex-1 bg-[#F5F5F5]">
-            {/* ✅ 키보드 대응용 래퍼 (한 글자 입력 시 키보드 닫힘 방지) */}
+            {/* 키보드 대응용 래퍼 */}
             <KeyboardAvoidingView
                 style={{ flex: 1 }}
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+                keyboardVerticalOffset={0} // ✅ 위 여백 줄이기
             >
-                <ScrollView
-                    className="flex-1"
-                    keyboardShouldPersistTaps="handled"
-                    keyboardDismissMode="none"
-                    contentContainerStyle={{
-                        paddingBottom: 24,
-                    }}
-                >
-                    {/* ✅ 가운데 정렬 제거, width 고정만 해서 레이아웃 안정화 */}
-                    <View style={{ width: '100%', alignSelf: 'center' }}>
-                        {/* 헤더 */}
-                        <View className="w-full bg-white border-b border-gray-200">
-                            <View
-                                className="flex-row items-center py-4 px-4"
-                                style={{ width: '100%', maxWidth: 480, alignSelf: 'center' }}
-                            >
-                                <TouchableOpacity onPress={() => navigation.goBack()}>
-                                    <Text className="text-2xl">{'←'}</Text>
-                                </TouchableOpacity>
-                                <Text className="text-lg font-bold ml-4">내 정보</Text>
+                {/* ✅ 화면 아무 데나 터치 시 키보드 내려가게 */}
+                <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                    <View style={{ flex: 1 }}>
+                        <ScrollView
+                            className="flex-1"
+                            keyboardShouldPersistTaps="handled"
+                            keyboardDismissMode="on-drag" // ✅ 스크롤 시에도 키보드 내려감
+                            contentContainerStyle={{
+                                flexGrow: 1,
+                                paddingBottom: 24,
+                            }}
+                        >
+                            <View style={{ width: '100%', alignSelf: 'center' }}>
+                                {/* 헤더 */}
+                                <View className="w-full bg-white border-b border-gray-200">
+                                    <View
+                                        className="flex-row items-center py-4 px-4"
+                                        style={{ width: '100%', maxWidth: 480, alignSelf: 'center' }}
+                                    >
+                                        <TouchableOpacity onPress={() => navigation.goBack()}>
+                                            <Text className="text-2xl">{'←'}</Text>
+                                        </TouchableOpacity>
+                                        <Text className="text-lg font-bold ml-4">내 정보</Text>
+                                    </View>
+                                </View>
+
+                                {/* 상단 프로필 카드 */}
+                                <View
+                                    className="mt-4 rounded-2xl bg-white px-5 py-4 shadow-sm border border-gray-100"
+                                    style={{ width: '100%', maxWidth: 480, alignSelf: 'center' }}
+                                >
+                                    <Text className="text-[12px] text-gray-500 mb-2">
+                                        기본 정보
+                                    </Text>
+                                    <UserInfoRow label="이름" value={profile.name} />
+                                    <UserInfoRow
+                                        label="휴대폰 번호"
+                                        value={profile.phoneNumber}
+                                    />
+                                    <UserInfoRow
+                                        label="생년월일"
+                                        value={profile.birth || '생년월일 정보 없음'}
+                                    />
+                                </View>
+
+                                {/* 비밀번호 변경 카드 */}
+                                <View
+                                    className="mt-5 rounded-2xl bg-white px-5 py-5 shadow-sm border border-gray-100 mb-4"
+                                    style={{ width: '100%', maxWidth: 480, alignSelf: 'center' }}
+                                >
+                                    <Text className="text-[13px] font-bold text-gray-900 mb-1">
+                                        비밀번호 변경
+                                    </Text>
+                                    <Text className="text-[11px] text-gray-500 mb-3">
+                                        현재 비밀번호를 입력한 뒤, 새 비밀번호를 설정해 주세요.
+                                    </Text>
+
+                                    {/* 현재 비밀번호 */}
+                                    <PasswordInput
+                                        label="현재 비밀번호"
+                                        value={oldPassword}
+                                        onChangeText={handleOldPasswordChange}
+                                        placeholder="현재 사용 중인 비밀번호를 입력하세요"
+                                        error={oldPasswordError}
+                                    />
+
+                                    {/* 새 비밀번호 */}
+                                    <PasswordInput
+                                        label="새 비밀번호 (8~20자, 문자/숫자 하나 이상 포함)"
+                                        value={newPassword}
+                                        onChangeText={setNewPassword}
+                                        placeholder="새 비밀번호를 입력하세요"
+                                        error={
+                                            newPassword.length > 0 && !isValidNewPassword
+                                                ? '비밀번호는 8~20자, 문자와 숫자를 모두 포함해야 합니다.'
+                                                : null
+                                        }
+                                    />
+
+                                    {/* 새 비밀번호 확인 */}
+                                    <PasswordInput
+                                        label="새 비밀번호 확인"
+                                        value={newPasswordConfirm}
+                                        onChangeText={setNewPasswordConfirm}
+                                        placeholder="새 비밀번호를 다시 입력하세요"
+                                        error={
+                                            newPasswordConfirm.length > 0 &&
+                                            newPassword !== newPasswordConfirm
+                                                ? '비밀번호가 일치하지 않습니다.'
+                                                : null
+                                        }
+                                    />
+
+                                    {/* 변경 버튼 */}
+                                    <TouchableOpacity
+                                        className={`mt-6 rounded-xl py-4 items-center ${
+                                            canChange ? 'bg-teal-600' : 'bg-gray-300'
+                                        }`}
+                                        onPress={handleChangePassword}
+                                        disabled={!canChange}
+                                        activeOpacity={0.85}
+                                    >
+                                        <Text className="text-white text-base font-bold">
+                                            {isSubmitting ? '변경 중...' : '비밀번호 변경하기'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
                             </View>
-                        </View>
-
-                        {/* 상단 프로필 카드 */}
-                        <View
-                            className="mt-4 rounded-2xl bg-white px-5 py-4 shadow-sm border border-gray-100"
-                            style={{ width: '100%', maxWidth: 480, alignSelf: 'center' }}
-                        >
-                            <Text className="text-[12px] text-gray-500 mb-2">
-                                기본 정보
-                            </Text>
-                            <UserInfoRow label="이름" value={profile.name} />
-                            <UserInfoRow
-                                label="휴대폰 번호"
-                                value={profile.phoneNumber}
-                            />
-                            <UserInfoRow
-                                label="생년월일"
-                                value={profile.birth || '생년월일 정보 없음'}
-                            />
-                        </View>
-
-                        {/* 비밀번호 변경 카드 */}
-                        <View
-                            className="mt-5 rounded-2xl bg-white px-5 py-5 shadow-sm border border-gray-100 mb-4"
-                            style={{ width: '100%', maxWidth: 480, alignSelf: 'center' }}
-                        >
-                            <Text className="text-[13px] font-bold text-gray-900 mb-1">
-                                비밀번호 변경
-                            </Text>
-                            <Text className="text-[11px] text-gray-500 mb-3">
-                                현재 비밀번호를 입력한 뒤, 새 비밀번호를 설정해 주세요.
-                            </Text>
-
-                            {/* 현재 비밀번호 */}
-                            <PasswordInput
-                                label="현재 비밀번호"
-                                stateSetter={setOldPassword}
-                                placeholder="현재 사용 중인 비밀번호를 입력하세요"
-                                error={oldPasswordError}
-                                isCurrent
-                            />
-
-                            {/* 새 비밀번호 */}
-                            <PasswordInput
-                                label="새 비밀번호 (8~20자, 문자/숫자 하나 이상 포함)"
-                                stateSetter={setNewPassword}
-                                placeholder="새 비밀번호를 입력하세요"
-                                error={
-                                    newPassword.length > 0 && !isValidNewPassword
-                                        ? '비밀번호는 8~20자, 문자와 숫자를 모두 포함해야 합니다.'
-                                        : null
-                                }
-                            />
-
-                            {/* 새 비밀번호 확인 */}
-                            <PasswordInput
-                                label="새 비밀번호 확인"
-                                stateSetter={setNewPasswordConfirm}
-                                placeholder="새 비밀번호를 다시 입력하세요"
-                                error={
-                                    newPasswordConfirm.length > 0 &&
-                                    newPassword !== newPasswordConfirm
-                                        ? '비밀번호가 일치하지 않습니다.'
-                                        : null
-                                }
-                            />
-
-                            {/* 변경 버튼 */}
-                            <TouchableOpacity
-                                className={`mt-6 rounded-xl py-4 items-center ${
-                                    canChange ? 'bg-teal-600' : 'bg-gray-300'
-                                }`}
-                                onPress={handleChangePassword}
-                                disabled={!canChange}
-                                activeOpacity={0.85}
-                            >
-                                <Text className="text-white text-base font-bold">
-                                    {isSubmitting ? '변경 중...' : '비밀번호 변경하기'}
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
+                        </ScrollView>
                     </View>
-                </ScrollView>
+                </TouchableWithoutFeedback>
             </KeyboardAvoidingView>
         </SafeAreaView>
     );

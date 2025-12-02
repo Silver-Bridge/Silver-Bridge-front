@@ -4,7 +4,6 @@ import React, {
     useState,
     useMemo,
     useCallback,
-    useEffect,
 } from 'react';
 import {
     View,
@@ -23,7 +22,6 @@ import { Calendar } from 'react-native-calendars';
 import moment from 'moment';
 import 'moment/locale/ko';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 
 import {
@@ -32,27 +30,32 @@ import {
     deleteScheduleApi,
 } from '../../shared/api/calendar';
 
-const USER_INFO_KEY = 'USER_INFO';
-
 moment.locale('ko');
+
+// 🔹 타임존(+09:00 등) 그대로 유지해서 시간 포맷
+const formatTimeRange = (startRaw, endRaw) => {
+    const startM = startRaw ? moment.parseZone(startRaw) : null;
+    const endM = endRaw ? moment.parseZone(endRaw) : null;
+
+    if (startM?.isValid() && endM?.isValid()) {
+        return `${startM.format('HH:mm')} ~ ${endM.format('HH:mm')}`;
+    } else if (startM?.isValid()) {
+        return startM.format('HH:mm');
+    } else if (endM?.isValid()) {
+        return endM.format('HH:mm');
+    }
+    return '시간 정보 없음';
+};
 
 /**
  * 일정 카드 컴포넌트 (노인 친화: 폰트 크게!)
  */
 const EventItem = ({ event, onPress, onDelete }) => {
-    const startRaw = event.start_at || event.startAt || event.alarm_time;
-    const endRaw = event.end_at || event.endAt || event.alarm_time;
+    // ✅ 표시용 시간은 일정 시작/종료 시간만 사용
+    const startRaw = event.start_at || event.startAt || null;
+    const endRaw = event.end_at || event.endAt || null;
 
-    const startM = startRaw ? moment(startRaw) : null;
-    const endM = endRaw ? moment(endRaw) : null;
-
-    let timeStr = '시간 정보 없음';
-    if (startM?.isValid() && endM?.isValid()) {
-        timeStr = `${startM.format('HH:mm')} ~ ${endM.format('HH:mm')}`;
-    } else if (startM?.isValid()) {
-        timeStr = startM.format('HH:mm');
-    }
-
+    const timeStr = formatTimeRange(startRaw, endRaw);
     const color = event.color || '#0D9488';
 
     return (
@@ -60,7 +63,6 @@ const EventItem = ({ event, onPress, onDelete }) => {
             activeOpacity={0.9}
             className="mb-4 rounded-3xl bg-white border border-gray-200"
             style={{
-
                 paddingHorizontal: 18,
                 paddingVertical: 14,
             }}
@@ -116,7 +118,7 @@ const EventItem = ({ event, onPress, onDelete }) => {
                     )}
                 </View>
 
-                {/* 오른쪽: 삭제 버튼 (쓰레기통 아이콘) */}
+                {/* 오른쪽: 삭제 버튼 */}
                 <TouchableOpacity
                     onPress={() => onDelete?.(event)}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -150,8 +152,6 @@ export default function CalendarScreen() {
     const navigation = useNavigation();
     const today = moment().format('YYYY-MM-DD');
 
-    const [userId, setUserId] = useState(null);
-
     const [currentMonth, setCurrentMonth] = useState(moment(today));
     const [selectedDate, setSelectedDate] = useState(today);
 
@@ -161,40 +161,15 @@ export default function CalendarScreen() {
     const [loadingDots, setLoadingDots] = useState(false);
     const [loadingEvents, setLoadingEvents] = useState(false);
 
-    /** USER_INFO에서 userId 가져오기 */
-    useEffect(() => {
-        (async () => {
-            try {
-                const raw = await AsyncStorage.getItem(USER_INFO_KEY);
-                if (!raw) return;
-
-                const info = JSON.parse(raw);
-                if (info?.id) {
-                    setUserId(info.id);
-                } else if (info?.userId) {
-                    setUserId(info.userId);
-                }
-            } catch (e) {
-                console.log(
-                    '[Calendar] load USER_INFO error:',
-                    e?.message || e,
-                );
-            }
-        })();
-    }, []);
-
     /** 1) 월별 dot 로드 */
     const loadDotsForMonth = useCallback(
         async (monthToLoad) => {
-            if (!userId) return;
-
             setLoadingDots(true);
             try {
                 const year = monthToLoad.year();
                 const month = monthToLoad.month() + 1;
 
                 const dates = await getCalendarDatesApi({
-                    userId,
                     year,
                     month,
                 });
@@ -213,30 +188,24 @@ export default function CalendarScreen() {
                 setLoadingDots(false);
             }
         },
-        [userId],
+        [],
     );
 
     /** 2) 특정 날짜의 상세 일정 로드 */
     const loadEventsForDate = useCallback(
         async (date) => {
-            if (!userId) return;
-
             setLoadingEvents(true);
             setSelectedEvents([]);
             try {
-                const events = await getSchedulesByDateApi({
-                    userId,
-                    date,
-                });
+                const events = await getSchedulesByDateApi({ date });
 
+                // 🔹 start_at 기준으로 정렬 (타임존 유지)
                 events.sort((a, b) => {
-                    const aTime =
-                        a.start_at || a.startAt || a.alarm_time || '';
-                    const bTime =
-                        b.start_at || b.startAt || b.alarm_time || '';
-                    return (
-                        moment(aTime).valueOf() - moment(bTime).valueOf()
-                    );
+                    const aTime = a.start_at || a.startAt || '';
+                    const bTime = b.start_at || b.startAt || '';
+                    const aM = aTime ? moment.parseZone(aTime) : null;
+                    const bM = bTime ? moment.parseZone(bTime) : null;
+                    return (aM?.valueOf() || 0) - (bM?.valueOf() || 0);
                 });
 
                 setSelectedEvents(events);
@@ -249,7 +218,7 @@ export default function CalendarScreen() {
                 setLoadingEvents(false);
             }
         },
-        [userId],
+        [],
     );
 
     /** 수정 화면 이동 */
@@ -263,7 +232,7 @@ export default function CalendarScreen() {
 
     /** 삭제 */
     const handleDeleteEvent = (event) => {
-        if (!event?.id || !userId) return;
+        if (!event?.id) return;
 
         Alert.alert(
             '일정 삭제',
@@ -276,7 +245,6 @@ export default function CalendarScreen() {
                     onPress: async () => {
                         try {
                             await deleteScheduleApi({
-                                userId,
                                 scheduleId: event.id,
                             });
                             await loadEventsForDate(selectedDate);
@@ -298,12 +266,9 @@ export default function CalendarScreen() {
     /** 포커스 시 새로고침 */
     useFocusEffect(
         useCallback(() => {
-            if (!userId) return;
-
             loadDotsForMonth(currentMonth);
             loadEventsForDate(selectedDate);
         }, [
-            userId,
             selectedDate,
             currentMonth,
             loadDotsForMonth,
@@ -440,7 +405,6 @@ export default function CalendarScreen() {
                         <AddScheduleButton navigation={navigation} />
                     </View>
                 </View>
-
             </ScrollView>
         </SafeAreaView>
     );

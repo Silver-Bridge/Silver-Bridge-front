@@ -3,10 +3,10 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
-import BottomTabBar from './_parts/BottomTabBar'; // 노인용과 같은 탭바 재사용
+import BottomTabBar from './_parts/BottomTabBar';
 import GuardianHomeScreen from '../screens/guardian/GuardianHomeScreen';
-import GuardianCalendarScreen from '../screens/guardian/GuardianCalendarScreen';
 import MyPageScreen from '../screens/mypage/MyPageScreen';
+import GuardianStack from './GuardianStack';   // ✅ 추가
 
 const Tab = createBottomTabNavigator();
 
@@ -16,9 +16,11 @@ export default function GuardianTabs() {
             screenOptions={{ headerShown: false }}
             tabBar={(props) => <BottomTabBar {...props} />}
         >
-            {/* 탭 이름은 기존 탭바 로직에 맞춰서 사용 */}
             <Tab.Screen name="홈" component={GuardianHomeScreen} />
-            <Tab.Screen name="캘린더" component={GuardianCalendarScreen} />
+
+            {/* ✅ 캘린더 탭 안에 Stack 넣기 */}
+            <Tab.Screen name="캘린더" component={GuardianStack} />
+
             <Tab.Screen name="마이페이지" component={MyPageScreen} />
         </Tab.Navigator>
     );

@@ -22,7 +22,7 @@ export default function GuardianConnectScreen() {
     // 입력 상태
     const [phone, setPhone] = useState('');
     const [errorMsg, setErrorMsg] = useState('');
-    const [submitting, setSubmitting] = useState(false);
+    const [submitting, setSubmitting] = useState(false); // 🔹 실제 연결 진행중 여부
 
     // 모달 상태
     const [modalVisible, setModalVisible] = useState(false);
@@ -46,11 +46,24 @@ export default function GuardianConnectScreen() {
         setPhone(formatted);
     };
 
-    // [확인] 버튼 클릭 시 로직 → 서버에 연결 요청
-    const handleCheckUser = async () => {
+    // [확인] 버튼 클릭 시 로직 → 형식만 체크하고 모달 열기 (API 호출 X)
+    const handleCheckUser = () => {
         const rawPhone = phone.replace(/-/g, '');
 
         // 1. 유효성 검사 (대부분 10~11자리)
+        if (rawPhone.length < 10) {
+            setErrorMsg('전화번호를 올바르게 입력해주세요.');
+            return;
+        }
+
+        // ✅ 여기서는 서버에 요청하지 않고, 그냥 "연결 확인 모달"만 띄움
+        setModalVisible(true);
+    };
+
+    // [연결하기] 버튼 클릭 시 로직 -> 실제 연결 API 호출 + 보호자 메인으로 이동
+    const handleConnect = async () => {
+        const rawPhone = phone.replace(/-/g, '');
+
         if (rawPhone.length < 10) {
             setErrorMsg('전화번호를 올바르게 입력해주세요.');
             return;
@@ -60,44 +73,14 @@ export default function GuardianConnectScreen() {
 
         try {
             setSubmitting(true);
-            setErrorMsg('');
 
-            // 🔥 백엔드에 elderPhone 그대로 전달 (하이픈 포함)
-            const res = await connectElderApi(phone);
+            // 🔥 실제 API 호출: 여기서 딱 한 번만 호출
+            await connectElderApi(phone); // (백엔드가 하이픈 포함을 기대한다는 전제)
 
-            // 성공: 서버에서 예외 안 던지면 연결 성공
-            console.log('[GuardianConnect] connect success:', res);
-            setModalVisible(true);
-        } catch (e) {
-            console.log('[GuardianConnect] connect error:', e);
+            // 모달 닫기
+            setModalVisible(false);
 
-            const msg =
-                e?.response?.data?.message ||
-                e?.__normalized?.message ||
-                e?.message ||
-                '연결 과정에서 오류가 발생했습니다.';
-
-            setErrorMsg(msg);
-            Alert.alert('연결 실패', msg);
-        } finally {
-            setSubmitting(false);
-        }
-    };
-
-    // [연결하기] 버튼 클릭 시 로직 -> 보호자 메인으로 이동
-    const handleConnect = async () => {
-        try {
-            const rawPhone = phone.replace(/-/g, '');
-
-            if (rawPhone.length < 10) {
-                setErrorMsg('전화번호를 올바르게 입력해주세요.');
-                return;
-            }
-
-            // 🔥 실제 API 호출
-            await connectElderApi(phone); // or rawPhone, 백엔드에서 기대하는 포맷에 맞게
-
-            // 안내
+            // 안내 후 메인으로 이동
             Alert.alert('안내', '이용자와 성공적으로 연결되었습니다.', [
                 {
                     text: '확인',
@@ -113,11 +96,17 @@ export default function GuardianConnectScreen() {
                 },
             ]);
         } catch (e) {
+            console.log('[GuardianConnect] connect error (on confirm):', e);
+
             const msg =
                 e?.response?.data?.message ||
+                e?.__normalized?.message ||
                 e?.message ||
                 '연결 처리 중 오류가 발생했습니다.';
+
             Alert.alert('연결 실패', msg);
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -153,20 +142,20 @@ export default function GuardianConnectScreen() {
 
                         {/* 에러 메시지 */}
                         {errorMsg ? (
-                            <Text className="text-red-500 text-xs mt-2 ml-1">{errorMsg}</Text>
+                            <Text className="text-red-500 text-xs mt-2 ml-1">
+                                {errorMsg}
+                            </Text>
                         ) : null}
 
-                        {/* 확인 버튼 */}
+                        {/* 확인 버튼 (서버 호출 X, 모달만 오픈) */}
                         <TouchableOpacity
-                            className={`mt-6 rounded-xl py-4 items-center shadow-sm ${
-                                submitting ? 'bg-teal-300' : 'bg-teal-400'
-                            }`}
+                            className="mt-6 rounded-xl py-4 items-center shadow-sm bg-teal-400"
                             activeOpacity={0.8}
                             onPress={handleCheckUser}
                             disabled={submitting}
                         >
                             <Text className="text-white text-[16px] font-bold">
-                                {submitting ? '확인 중…' : '확인'}
+                                확인
                             </Text>
                         </TouchableOpacity>
                     </View>
@@ -180,18 +169,18 @@ export default function GuardianConnectScreen() {
                     >
                         <View className="flex-1 bg-black/40 justify-center items-center px-8">
                             <View className="bg-white w-full rounded-2xl p-8 items-center shadow-lg">
-                                <Text className="text-xl font-bold text-gray-900 text-center mb-6 leading-8">
-                                    입력하신 번호({phone})의 이용자와{'\n'}
-                                    연결하시겠습니까?
+                                <Text className="text-2xl font-bold text-gray-900 text-center mb-6 leading-8">
+                                    입력하신 번호({phone})의 이용자와 연결하시겠습니까?
                                 </Text>
 
                                 {/* 연결하기 버튼 */}
                                 <TouchableOpacity
                                     className="bg-teal-600 rounded-xl w-32 py-3 items-center mb-3"
                                     onPress={handleConnect}
+                                    disabled={submitting}
                                 >
                                     <Text className="text-white font-bold text-base">
-                                        연결하기
+                                        {submitting ? '연결 중…' : '연결하기'}
                                     </Text>
                                 </TouchableOpacity>
 
@@ -199,6 +188,7 @@ export default function GuardianConnectScreen() {
                                 <TouchableOpacity
                                     onPress={() => setModalVisible(false)}
                                     className="p-2"
+                                    disabled={submitting}
                                 >
                                     <Text className="text-gray-400 text-sm underline decoration-gray-400">
                                         취소

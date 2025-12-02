@@ -18,6 +18,7 @@ import {
     getTodayTopEmotion,
     getLastWeekEmotionSummary,
     getGuardianTodayScheduleApi,
+    getElderInfoApi,
 } from '../../shared/api/guardian';
 
 // ==== 시간 파싱/포맷 유틸 (노인 홈과 동일) ====
@@ -34,16 +35,6 @@ function fmtHHmm(d) {
     const mm = String(d.getMinutes()).padStart(2, '0');
     return `${hh}:${mm}`;
 }
-// 포스터용
-const MOCK_WEEKLY_EMOTION = [
-    { date: '2025-11-18', emotion: '6' },   // 화
-    { date: '2025-11-19', emotion: '0' },   // 수
-    { date: '2025-11-20', emotion: '6' },     // 목
-    { date: '2025-11-21', emotion: '2' },   // 금
-    { date: '2025-11-22', emotion: '6' }, // 토
-    { date: '2025-11-17', emotion: '4' },// 일
-    { date: '2025-11-16', emotion: '3' }, // 월
-];
 
 // ISO 문자열에서 HH:mm 부분만 추출
 const extractHHmm = (iso) => {
@@ -360,7 +351,6 @@ function ScheduleRow({ item, done, onToggle }) {
     );
 }
 
-
 const GuardianHomeScreen = ({ navigation }) => {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -398,7 +388,8 @@ const GuardianHomeScreen = ({ navigation }) => {
         try {
             if (!refreshing) setLoading(true);
 
-            const [todayRes, weeklyRes, scheduleRes] = await Promise.all([
+            // 🔹 오늘 감정, 주간 감정, 오늘 일정, 노인 정보 한 번에 가져오기
+            const [todayRes, weeklyRes, scheduleRes, elderRes] = await Promise.all([
                 getTodayTopEmotion().catch((e) => {
                     console.log('[GuardianHome] todayTopEmotion error', e);
                     return null;
@@ -411,28 +402,38 @@ const GuardianHomeScreen = ({ navigation }) => {
                     console.log('[GuardianHome] todaySchedules error', e);
                     return [];
                 }),
+                getElderInfoApi().catch((e) => {
+                    console.log('[GuardianHome] elderInfo error', e);
+                    return null;
+                }),
             ]);
 
             const mappedToday = mapTodayEmotion(todayRes);
 
-            // 이름이 제대로 오면 갱신, 아니면 기존 값 유지
-            setElderName((prev) =>
-                mappedToday.name &&
-                mappedToday.name !== '보호 대상자'
-                    ? mappedToday.name
-                    : prev
-            );
+            // 🔹 elder-info API에서 이름 우선 사용
+            const elderNameFromApi =
+                elderRes?.elderName ||
+                elderRes?.name ||
+                elderRes?.targetName ||
+                null;
+
+            setElderName((prev) => {
+                if (elderNameFromApi) return elderNameFromApi;
+                if (mappedToday.name && mappedToday.name !== '보호 대상자') {
+                    return mappedToday.name;
+                }
+                return prev;
+            });
 
             setTodayEmotionCode(mappedToday.emotionCode);
             setTodayEmotionSummary(mappedToday.summary);
-            //setWeeklyEmotion(mapWeeklyEmotion(weeklyRes));
 
-            //포스터 용
-            const weeklySource =
-                Array.isArray(weeklyRes) && weeklyRes.length > 0
-                    ? weeklyRes
-                    : MOCK_WEEKLY_EMOTION;
-            setWeeklyEmotion(mapWeeklyEmotion(weeklySource));
+            // 🔹 주간 감정: 백엔드 값 그대로 사용 (목데이터 제거)
+            if (Array.isArray(weeklyRes)) {
+                setWeeklyEmotion(mapWeeklyEmotion(weeklyRes));
+            } else {
+                setWeeklyEmotion([]);
+            }
 
             setTodaySchedules(mapTodaySchedules(scheduleRes));
             setDoneIds(new Set());
@@ -471,13 +472,18 @@ const GuardianHomeScreen = ({ navigation }) => {
     const emotionImage = getEmotionImage(todayEmotionCode);
     const avatarSource = getGuardianAvatarSource(guardianGender);
 
+    // 🔹 헤더 문구: elderName 반영
+    const moodTitle = elderName
+        ? `${elderName}님의 오늘 기분`
+        : '오늘 보호 대상자의 기분';
+
     return (
         <SafeAreaView edges={['top']} className="flex-1 bg-[#f7f8f7]">
             <ScrollView
                 className="flex-1"
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{
-                    paddingBottom: 8,   // 🔽 많이 줄이기
+                    paddingBottom: 8,
                     paddingHorizontal: 20,
                 }}
                 refreshControl={
@@ -517,21 +523,20 @@ const GuardianHomeScreen = ({ navigation }) => {
                     </View>
                 </View>
 
-                {/* ===== 상단 감정 섹션 (카드 X, 원형 그라데이션 + 알약 버튼) ===== */}
+                {/* ===== 상단 감정 섹션 ===== */}
                 <View className="items-center mb-8">
-                    {/* ⬆️ 제목: 글자 크게 */}
+                    {/* 제목: elderName 반영 */}
                     <Text
                         style={{ fontSize: 18, fontWeight: '800' }}
                         className="text-gray-900 mb-3"
                     >
-                        {/*{elderName}님의 오늘 기분*/}
-                        감순자님의 오늘 기분
+                        {moodTitle}
                     </Text>
 
-                    {/* ⬇️ 원형 그라데이션 링: 전체적으로 살짝 줄임 */}
+                    {/* 원형 그라데이션 링 */}
                     <View
                         style={{
-                            width: 190,      // 기존보다 약간 작게
+                            width: 190,
                             height: 190,
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -561,19 +566,19 @@ const GuardianHomeScreen = ({ navigation }) => {
                             >
                                 <Image
                                     source={emotionImage}
-                                    style={{ width: 120, height: 120 }} // 이모티콘은 그대로 꽉 차게
+                                    style={{ width: 120, height: 120 }}
                                     resizeMode="contain"
                                 />
                             </View>
                         </LinearGradient>
                     </View>
 
-                    {/* ⬇️ 알약 버튼: 더 크고 두껍게 */}
+                    {/* 감정 알약 버튼 */}
                     <TouchableOpacity
                         activeOpacity={0.85}
                         style={{
-                            paddingHorizontal: 32, // 가로 넓게
-                            paddingVertical: 10,   // 세로도 조금 더
+                            paddingHorizontal: 32,
+                            paddingVertical: 10,
                             borderRadius: 9999,
                             backgroundColor: gradient[1] || '#10b981',
                             shadowColor: '#000000',
@@ -584,7 +589,7 @@ const GuardianHomeScreen = ({ navigation }) => {
                         }}
                     >
                         <Text
-                            style={{ fontSize: 16, fontWeight: '700' }} // 글자도 키움
+                            style={{ fontSize: 16, fontWeight: '700' }}
                             className="text-white"
                         >
                             {label}
@@ -592,7 +597,7 @@ const GuardianHomeScreen = ({ navigation }) => {
                     </TouchableOpacity>
                 </View>
 
-                {/* 주간 감정 변화 (항상 날짜 + 데이터 있으면 아이콘) */}
+                {/* 주간 감정 변화 */}
                 <View className="w-full mb-6">
                     <Text className="text-lg font-bold text-gray-800 mb-3 px-1">
                         주간 감정 변화
@@ -640,7 +645,7 @@ const GuardianHomeScreen = ({ navigation }) => {
                     </View>
                 </View>
 
-                {/* 오늘의 일정 (노인 홈과 동일한 Row UI) */}
+                {/* 오늘의 일정 */}
                 <View className="w-full mb-20">
                     <View className="flex-row justify-between items-center mb-3 px-1">
                         <Text className="text-lg font-bold text-gray-800">

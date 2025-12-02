@@ -106,3 +106,17 @@ export async function getSchedulesByDateApi({ date }) {
     // ScheduleListResponse { body: [...] } 구조 기준
     return res.data?.body ?? res.data ?? [];
 }
+
+// 🔹 보호자 → 연결된 노인 정보 조회
+// GET /api/mypage/nok/elder-info
+export async function getElderInfoApi() {
+    const res = await client.get('/mypage/nok/elder-info');
+    return res.data; // { elderId, elderName, elderPhone, message? }
+}
+
+// 🔹 노인 → 연결된 보호자 정보 조회
+// GET /api/mypage/member/guardian-info
+export async function getGuardianInfoApi() {
+    const res = await client.get('/mypage/member/guardian-info');
+    return res.data; // { guardianId, guardianName, guardianPhone }
+}

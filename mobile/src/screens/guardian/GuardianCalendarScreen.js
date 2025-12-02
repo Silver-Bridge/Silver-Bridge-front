@@ -9,11 +9,24 @@ import {
     ActivityIndicator,
     Image,
     Dimensions,
-    ScrollView,   // ✅ 전체 스크롤용
+    ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+
+// 🔹 보호자-노인 연결 정보 + 감정 요약 API
+import {
+    getElderInfoApi,
+    getEmotionSummaryCurrentMonth,   // ✅ 감정 월별 요약 API
+} from '../../shared/api/guardian';
+
+// 🔹 캘린더 API (userId 안 넘김, 인증 기반)
+import {
+    getCalendarDatesApi,
+    getSchedulesByDateApi,
+} from '../../shared/api/calendar';
 
 // ==== 캘린더 한글 설정 =======================================================
 LocaleConfig.locales.ko = {
@@ -31,12 +44,6 @@ LocaleConfig.locales.ko = {
 };
 LocaleConfig.defaultLocale = 'ko';
 
-// 🔹 캘린더 API (userId 안 넘김, 인증 기반)
-import {
-    getCalendarDatesApi,
-    getSchedulesByDateApi,
-} from '../../shared/api/calendar';
-
 // 오늘 날짜 "YYYY-MM-DD"
 const getTodayString = () => {
     const d = new Date();
@@ -49,45 +56,11 @@ const getTodayString = () => {
 // ==== 기기 크기 비율 기반 레이아웃 상수 =====================================
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// 👉 [A] 날짜/이모티콘 크기·간격 조절 상수 (겹침 해결 + 기종별 대응)
-const CALENDAR_HEIGHT = SCREEN_HEIGHT * 0.55; // 전체 달력 높이 (화면 높이의 55%)
-const EMOJI_SIZE = Math.min(SCREEN_WIDTH, SCREEN_HEIGHT) * 0.09; // 이모티콘 크기
-const DATE_FONT_SIZE = Math.max(15, Math.round(SCREEN_WIDTH * 0.04)); // 날짜 글씨 크기
-const CELL_MIN_HEIGHT = EMOJI_SIZE + DATE_FONT_SIZE * 3 + 24; // 하루 셀 세로 최소 높이
-const CELL_VERTICAL_PADDING  = EMOJI_SIZE * 0.6 ; // 하루 셀 위아래 여백(px)
-
-// 🔹 포스터/테스트용 감정 목데이터
-const MOCK_EMOTION_BY_DATE = {
-    '2025-10-26': '3',
-    '2025-10-27': '4',
-    '2025-10-28': '6',
-    '2025-10-29': '0',
-    '2025-10-30': '2',
-    '2025-10-31': '5',
-
-    '2025-11-01': '6',
-    '2025-11-02': '3',
-    '2025-11-03': '4',
-    '2025-11-04': '0',
-    '2025-11-05': '2',
-    '2025-11-06': '6',
-    '2025-11-07': '1',
-    '2025-11-08': '6',
-    '2025-11-09': '3',
-    '2025-11-10': '4',
-    '2025-11-11': '6',
-    '2025-11-12': '0',
-    '2025-11-13': '2',
-    '2025-11-14': '5',
-    '2025-11-15': '6',
-    '2025-11-16': '3',
-    '2025-11-17': '4',
-    '2025-11-18': '6',
-    '2025-11-19': '0',
-    '2025-11-20': '6',
-    '2025-11-21': '2',
-    '2025-11-22': '6',
-};
+const CALENDAR_HEIGHT = SCREEN_HEIGHT * 0.55;
+const EMOJI_SIZE = Math.min(SCREEN_WIDTH, SCREEN_HEIGHT) * 0.09;
+const DATE_FONT_SIZE = Math.max(15, Math.round(SCREEN_WIDTH * 0.04));
+const CELL_MIN_HEIGHT = EMOJI_SIZE + DATE_FONT_SIZE * 3 + 24;
+const CELL_VERTICAL_PADDING = EMOJI_SIZE * 0.6;
 
 // 🔹 감정 이모티콘 PNG 매핑
 const getEmotionImage = (emotion) => {
@@ -150,34 +123,99 @@ const mapSchedules = (list) => {
 };
 
 const GuardianCalendarScreen = () => {
+    const navigation = useNavigation();
+
+    const [elderName, setElderName] = useState('');   // 🔹 어르신 이름 상태
     const [selectedDate, setSelectedDate] = useState(getTodayString());
-    const [monthMarks, setMonthMarks] = useState({});
+    const [monthMarks, setMonthMarks] = useState({}); // 일정 있는 날짜
+    const [emotionByDate, setEmotionByDate] = useState({}); // 🔹 날짜별 감정 코드
     const [scheduleList, setScheduleList] = useState([]);
     const [loadingMonth, setLoadingMonth] = useState(false);
     const [loadingSchedules, setLoadingSchedules] = useState(false);
+    const [loadingEmotion, setLoadingEmotion] = useState(false);
 
-    // 월별 일정 날짜
-    const loadMonth = useCallback(async (year, month) => {
+    // 🔹 보호자 계정에 연결된 노인 정보 로딩
+    useEffect(() => {
+        (async () => {
+            try {
+                const info = await getElderInfoApi();
+                // { elderId, elderName, elderPhone }
+                setElderName(info?.elderName || '');
+            } catch (e) {
+                console.log('[GuardianCalendar] elder-info error', e?.message || e);
+                setElderName('');
+            }
+        })();
+    }, []);
+
+    // 🔹 해당 월의 감정 요약 불러오기 (백엔드 응답 유연하게 처리)
+    const loadEmotionForMonth = useCallback(async (year, month) => {
         try {
-            setLoadingMonth(true);
-            const dates = await getCalendarDatesApi({ year, month });
-            const marks = {};
-            dates.forEach((d) => {
-                marks[d] = true;
-            });
-            setMonthMarks(marks);
+            setLoadingEmotion(true);
+
+            // 현재는 "이번 달 감정 요약" API만 사용 (백엔드가 현재 월 기준 컨트롤러)
+            const list = await getEmotionSummaryCurrentMonth();
+
+            const map = {};
+            if (Array.isArray(list)) {
+                list.forEach((item) => {
+                    // 백엔드 응답에서 날짜/감정 필드 유연하게 뽑기
+                    const dateStr =
+                        item.date ||
+                        item.targetDate ||
+                        item.day ||
+                        item.dateStr ||
+                        item.date_string;
+
+                    const emotionCode =
+                        item.emotion ||
+                        item.emotionCode ||
+                        item.emotion_code ||
+                        item.topEmotion;
+
+                    if (dateStr && emotionCode !== undefined && emotionCode !== null) {
+                        map[dateStr] = emotionCode;
+                    }
+                });
+            }
+
+            setEmotionByDate(map);
         } catch (e) {
-            console.log('[GuardianCalendar] loadMonth error', e);
-            Alert.alert(
-                '오류',
-                e?.response?.data?.message ||
-                e?.message ||
-                '월별 일정을 불러오는 중 오류가 발생했습니다.',
-            );
+            console.log('[GuardianCalendar] loadEmotionForMonth error', e);
+            // 감정 데이터는 없어도 치명적이진 않으니 Alert는 생략하거나 필요 시 추가 가능
         } finally {
-            setLoadingMonth(false);
+            setLoadingEmotion(false);
         }
     }, []);
+
+    // 월별 일정 날짜
+    const loadMonth = useCallback(
+        async (year, month) => {
+            try {
+                setLoadingMonth(true);
+                const dates = await getCalendarDatesApi({ year, month });
+                const marks = {};
+                dates.forEach((d) => {
+                    marks[d] = true;
+                });
+                setMonthMarks(marks);
+
+                // 🔹 같은 타이밍에 감정 요약도 로딩
+                await loadEmotionForMonth(year, month);
+            } catch (e) {
+                console.log('[GuardianCalendar] loadMonth error', e);
+                Alert.alert(
+                    '오류',
+                    e?.response?.data?.message ||
+                    e?.message ||
+                    '월별 일정을 불러오는 중 오류가 발생했습니다.',
+                );
+            } finally {
+                setLoadingMonth(false);
+            }
+        },
+        [loadEmotionForMonth],
+    );
 
     // 날짜별 일정
     const loadSchedules = useCallback(async (date) => {
@@ -201,32 +239,42 @@ const GuardianCalendarScreen = () => {
     // 최초 로딩
     useEffect(() => {
         const today = getTodayString();
+        setSelectedDate(today);
         const [y, m] = today.split('-');
         loadMonth(Number(y), Number(m));
         loadSchedules(today);
     }, [loadMonth, loadSchedules]);
 
-    // mark + emotion merge
+    // 화면 다시 포커스될 때(일정 추가 후 뒤로가기 등) 새로고침
+    useFocusEffect(
+        useCallback(() => {
+            const [y, m] = selectedDate.split('-');
+            loadMonth(Number(y), Number(m));
+            loadSchedules(selectedDate);
+        }, [selectedDate, loadMonth, loadSchedules]),
+    );
+
+    // 🔹 일정(mark) + 감정(emotionByDate) merge
     const getMarkedDates = () => {
         const marked = {};
 
+        // 1) 일정이 있는 날짜 표시
         Object.keys(monthMarks).forEach((date) => {
-            const emotion = MOCK_EMOTION_BY_DATE[date] ?? null;
             marked[date] = {
                 marked: true,
                 dotColor: '#4F46E5',
-                emotion,
             };
         });
 
-        Object.keys(MOCK_EMOTION_BY_DATE).forEach((date) => {
+        // 2) 감정 데이터 합치기
+        Object.keys(emotionByDate).forEach((date) => {
             if (!marked[date]) {
-                marked[date] = { emotion: MOCK_EMOTION_BY_DATE[date] };
-            } else if (!marked[date].emotion) {
-                marked[date].emotion = MOCK_EMOTION_BY_DATE[date];
+                marked[date] = {};
             }
+            marked[date].emotion = emotionByDate[date];
         });
 
+        // 3) 선택된 날짜 하이라이트
         marked[selectedDate] = {
             ...(marked[selectedDate] || {}),
             selected: true,
@@ -248,11 +296,9 @@ const GuardianCalendarScreen = () => {
         loadMonth(year, month);
     };
 
+    // 🔹 보호자 일정 추가 화면으로 이동
     const handleAddSchedule = () => {
-        Alert.alert(
-            '안내',
-            '보호자용 일정 추가 화면은 추후 구현 예정입니다.\n(지금은 캘린더 조회만 가능합니다.)',
-        );
+        navigation.navigate('GuardianScheduleAdd', { date: selectedDate });
     };
 
     return (
@@ -260,14 +306,13 @@ const GuardianCalendarScreen = () => {
             {/* 상단 헤더 */}
             <View className="px-5 pt-4 pb-3 flex-row justify-between items-center">
                 <Text className="text-2xl font-bold text-gray-900">
-                    박경림님 일정 관리
+                    {elderName ? `${elderName}님 일정 관리` : '대상자 일정 관리'}
                 </Text>
                 <TouchableOpacity onPress={handleAddSchedule}>
                     <Ionicons name="add-circle" size={28} color="#4F46E5" />
                 </TouchableOpacity>
             </View>
 
-            {/* 👉 [C] 화면 전체 스크롤: 캘린더 + 일정 모두 ScrollView 안으로 */}
             <ScrollView
                 style={{ flex: 1 }}
                 contentContainerStyle={{ paddingBottom: 24 }}
@@ -294,34 +339,24 @@ const GuardianCalendarScreen = () => {
                                 textDayHeaderFontWeight: '500',
                                 textDayFontSize: 13,
                                 textDayHeaderFontSize: 11,
-
-                                // ✅ 기본 요일(월~금) 색 – 거의 검정
                                 textSectionTitleColor: '#111827',
-
-                                // ✅ 요일 줄 스타일 + 요일별 개별 색
                                 'stylesheet.calendar.header': {
-                                    // index 0 = 일요일 → 빨간색
                                     dayTextAtIndex0: {
                                         color: '#EF4444',
                                     },
-                                    // index 6 = 토요일 → 파란색
                                     dayTextAtIndex6: {
                                         color: '#3B82F6',
                                     },
                                 },
-
                             }}
                             style={{
                                 borderRadius: 24,
-                                height: CALENDAR_HEIGHT, // 🔥 기기 비율로 달력 높이
+                                height: CALENDAR_HEIGHT,
                                 paddingBottom: 4,
                             }}
-                            // 👉 [B] 날짜/이모티콘 배치 부분 (겹침 수정은 여기서)
                             dayComponent={({ date, state, marking }) => {
                                 const disabled = state === 'disabled';
                                 const isSelected = selectedDate === date.dateString;
-
-                                // ✅ 해당 달이 아니면 emotion도 강제로 없앰
                                 const emotion = disabled ? null : marking?.emotion;
                                 const emoImg = emotion ? getEmotionImage(emotion) : null;
 
@@ -333,12 +368,11 @@ const GuardianCalendarScreen = () => {
                                             flex: 1,
                                             alignItems: 'center',
                                             justifyContent: 'flex-start',
-                                             paddingTop: 4,
-                                            paddingBottom: CELL_VERTICAL_PADDING* 2,
+                                            paddingTop: 4,
+                                            paddingBottom: CELL_VERTICAL_PADDING * 2,
                                             minHeight: CELL_MIN_HEIGHT,
                                         }}
                                     >
-                                        {/* 날짜 숫자 */}
                                         <Text
                                             style={{
                                                 fontSize: DATE_FONT_SIZE,
@@ -354,7 +388,6 @@ const GuardianCalendarScreen = () => {
                                             {date.day}
                                         </Text>
 
-                                        {/* ✅ 현재 달일 때만 이모티콘/동그라미 표시 */}
                                         {!disabled && (
                                             emoImg ? (
                                                 <Image
@@ -384,7 +417,7 @@ const GuardianCalendarScreen = () => {
                             }}
                         />
 
-                        {(loadingMonth || loadingSchedules) && (
+                        {(loadingMonth || loadingSchedules || loadingEmotion) && (
                             <View className="mt-2 items-center">
                                 <ActivityIndicator size="small" />
                                 <Text className="text-xs text-gray-400 mt-1">
@@ -415,9 +448,7 @@ const GuardianCalendarScreen = () => {
                                     </Text>
                                     <Text className="text-sm text-gray-500">
                                         {item.time}
-                                        {item.location
-                                            ? ` | ${item.location}`
-                                            : ''}
+                                        {item.location ? ` | ${item.location}` : ''}
                                     </Text>
                                 </View>
                                 <TouchableOpacity>
