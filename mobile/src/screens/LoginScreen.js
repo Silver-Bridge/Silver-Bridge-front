@@ -21,8 +21,18 @@ import {
     parseJwt,
 } from '../shared/auth/token';
 
-// 🔹 카카오 네이티브 SDK
-import { login as kakaoNativeLogin } from '@react-native-seoul/kakao-login';
+
+
+// 🔥 플랫폼별로 동적 로드
+let kakaoNativeLogin = null;
+if (Platform.OS === 'android') {
+    try {
+        // Android 전용 네이티브 모듈 (EAS 빌드에서만 사용)
+        kakaoNativeLogin = require('@react-native-seoul/kakao-login').login;
+    } catch (e) {
+        console.log('[KAKAO] native module load failed on Android', e);
+    }
+}
 
 // .env 에 정의한 Kakao REST API Key (참고용 로그만)
 const KAKAO_REST_API_KEY = 'fda22854e56010ae0a8129a6acb4b54d';
@@ -143,12 +153,30 @@ export default function LoginScreen({ navigation }) {
     // ✅ 카카오 로그인 (네이티브 SDK 사용)
     // =========================
     const onKakaoLogin = async () => {
+        // 🔒 iOS 에서는 아예 막기
+        if (Platform.OS === 'ios') {
+            Alert.alert(
+                '안내',
+                'iOS 테스트 버전에서는 카카오 로그인을 제공하지 않습니다.\n휴대폰 번호로 로그인해 주세요.',
+            );
+            return;
+        }
+
+        // 혹시 Android인데 모듈 로드 실패했을 때 방어
+        if (!kakaoNativeLogin) {
+            Alert.alert(
+                '오류',
+                '카카오 로그인 모듈을 불러오지 못했습니다.\n앱을 다시 설치하거나 관리자에게 문의해 주세요.',
+            );
+            return;
+        }
+
         if (kakaoSubmitting) return;
 
         try {
             setKakaoSubmitting(true);
 
-            // 🔹 1) 카카오 네이티브 SDK 로그인
+            // 🔹 카카오 네이티브 SDK 로그인 (Android 전용)
             const token = await kakaoNativeLogin();
             console.log('[KAKAO NATIVE TOKEN]', token);
 
@@ -158,15 +186,14 @@ export default function LoginScreen({ navigation }) {
                 return;
             }
 
-            // 🔹 2) 우리 서버로 소셜 로그인 요청
+            // 🔹 우리 서버로 소셜 로그인 요청
             const socialResult = await kakaoSocialLogin(kakaoAccessToken);
             console.log('[KAKAO LOGIN RESULT]', socialResult);
 
-            // ✅ 기존 회원: kakaoSocialLogin 안에서 이미 setAuth / setUser 처리됨
-            if (socialResult.mode === 'EXISTING' || socialResult.registered) {
-                const user = socialResult.user || {};
-                const role = user.role;
-                const targetRoot = getTargetRoot(role);
+            if (socialResult.registered) {
+                // ✅ 기존 회원
+                const user = socialResult.user;
+                const targetRoot = getTargetRoot(user?.role);
 
                 navigation.dispatch(
                     CommonActions.reset({
@@ -175,23 +202,13 @@ export default function LoginScreen({ navigation }) {
                     }),
                 );
                 Alert.alert('안내', '카카오 로그인에 성공했습니다.');
-                return;
-            }
-
-            // ✅ 신규 회원: tempToken 들고 회원가입 플로우로
-            if (socialResult.mode === 'NEW' && socialResult.tempToken) {
+            } else {
+                // ✅ 신규 회원 – 회원가입 플로우로
                 navigation.navigate('Signup', {
                     mode: 'social',
                     tempToken: socialResult.tempToken,
                 });
-                return;
             }
-
-            // 혹시 모를 예외 상황
-            Alert.alert(
-                '오류',
-                '카카오 로그인 결과를 처리하는 중 문제가 발생했습니다.\n다시 시도해 주세요.',
-            );
         } catch (e) {
             console.log('[KAKAO LOGIN ERROR]', e);
             const msg =
