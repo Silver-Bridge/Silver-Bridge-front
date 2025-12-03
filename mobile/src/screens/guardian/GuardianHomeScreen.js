@@ -50,6 +50,17 @@ const extractHHmm = (iso) => {
     return '';
 };
 
+// ===== 🔥 데모용 목데이터 설정 =====
+const USE_MOCK = true;
+
+// 👉 주간 감정 목데이터: **딱 3일만** (12/01, 12/02, 12/03)
+const MOCK_WEEKLY_EMOTION = [
+    { key: 'd1', day: '월', date: '12.01', emotion: '0' }, // 기쁨
+    { key: 'd2', day: '화', date: '12.02', emotion: '3' }, // 불안
+    { key: 'd3', day: '수', date: '12.03', emotion: '1' }, // 슬픔
+];
+// 👉 오늘 일정 목데이터는 **안 씀** (그대로 빈 배열 or 실제 API)
+
 // ---------------- 감정 스타일 & 이미지 매핑 -----------------
 
 // 텍스트/색상/그라데이션
@@ -173,7 +184,8 @@ const mapTodayEmotion = (raw) => {
     };
 };
 
-// 최근 7일(오늘 포함) 슬롯을 항상 생성하고 주간 감정 매핑
+// 최근 7일용 map 함수는 그대로 둠 (실제 API 쓸 때 사용)
+// (지금은 USE_MOCK=true니까 안 타도 됨)
 const mapWeeklyEmotion = (list) => {
     const daysKo = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -353,7 +365,7 @@ function ScheduleRow({ item, done, onToggle }) {
 
 const GuardianHomeScreen = ({ navigation }) => {
     const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
+    the [refreshing, setRefreshing] = useState(false);
     const [errorMsg, setErrorMsg] = useState(null);
 
     // 보호 대상자(노인)
@@ -428,14 +440,23 @@ const GuardianHomeScreen = ({ navigation }) => {
             setTodayEmotionCode(mappedToday.emotionCode);
             setTodayEmotionSummary(mappedToday.summary);
 
-            // 🔹 주간 감정: 백엔드 값 그대로 사용 (목데이터 제거)
-            if (Array.isArray(weeklyRes)) {
-                setWeeklyEmotion(mapWeeklyEmotion(weeklyRes));
+            // 🔥 목데이터 사용 여부
+            if (USE_MOCK) {
+                // → 주간 감정: 3일짜리 목데이터
+                setWeeklyEmotion(MOCK_WEEKLY_EMOTION);
+
+                // → 일정은 목데이터 안 쓰고, 그냥 비워둠 (화면에는 "등록된 일정이 없습니다" 뜸)
+                setTodaySchedules([]);
             } else {
-                setWeeklyEmotion([]);
+                // → 실제 API 데이터 사용
+                if (Array.isArray(weeklyRes)) {
+                    setWeeklyEmotion(mapWeeklyEmotion(weeklyRes));
+                } else {
+                    setWeeklyEmotion([]);
+                }
+                setTodaySchedules(mapTodaySchedules(scheduleRes));
             }
 
-            setTodaySchedules(mapTodaySchedules(scheduleRes));
             setDoneIds(new Set());
         } catch (e) {
             console.log('[GuardianHome] loadAll fatal', e);
