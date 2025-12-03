@@ -535,8 +535,8 @@ export default function ChatScreen() {
         <SafeAreaView edges={[]} className="flex-1 bg-[#f7f8f7]">
             <KeyboardAvoidingView
                 className="flex-1"
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                keyboardVerticalOffset={headerHeight}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight : 0}
             >
                 <View className="flex-1">
                     <FlatList

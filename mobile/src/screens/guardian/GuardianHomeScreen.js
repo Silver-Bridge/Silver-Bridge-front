@@ -25,7 +25,7 @@ import {
 function parseDateLoose(s) {
     if (!s) return null;
     let t = String(s).trim().replace(' ', 'T');
-    t = t.replace(/\.\d{6}$/, (m) => '.' + m.slice(1, 4)); // .123456 -> .123
+    t = t.replace(/\.\d{6}$/, m => '.' + m.slice(1, 4)); // .123456 -> .123
     const d = new Date(t);
     return isNaN(d.getTime()) ? null : d;
 }
@@ -37,7 +37,7 @@ function fmtHHmm(d) {
 }
 
 // ISO 문자열에서 HH:mm 부분만 추출
-const extractHHmm = (iso) => {
+const extractHHmm = iso => {
     if (!iso) return '';
     const str = String(iso);
 
@@ -50,21 +50,13 @@ const extractHHmm = (iso) => {
     return '';
 };
 
-// ===== 🔥 데모용 목데이터 설정 =====
-const USE_MOCK = true;
-
-// 👉 주간 감정 목데이터: **딱 3일만** (12/01, 12/02, 12/03)
-const MOCK_WEEKLY_EMOTION = [
-    { key: 'd1', day: '월', date: '12.01', emotion: '0' }, // 기쁨
-    { key: 'd2', day: '화', date: '12.02', emotion: '3' }, // 불안
-    { key: 'd3', day: '수', date: '12.03', emotion: '1' }, // 슬픔
-];
-// 👉 오늘 일정 목데이터는 **안 씀** (그대로 빈 배열 or 실제 API)
+// ===== 🔥 데모용 목데이터 플래그 =====
+const USE_MOCK_WEEKLY = true; // 주간 감정만 목데이터로 3칸 채우기
 
 // ---------------- 감정 스타일 & 이미지 매핑 -----------------
 
 // 텍스트/색상/그라데이션
-const getEmotionStyle = (emotion) => {
+const getEmotionStyle = emotion => {
     const code = (emotion || '').toString().toUpperCase();
 
     switch (code) {
@@ -130,7 +122,7 @@ const getEmotionStyle = (emotion) => {
 };
 
 // 이모티콘 PNG
-const getEmotionImage = (emotion) => {
+const getEmotionImage = emotion => {
     const code = (emotion || '').toString().toUpperCase();
 
     if (code === 'HAPPY' || code === 'POSITIVE' || code === '0') {
@@ -155,7 +147,7 @@ const getEmotionImage = (emotion) => {
 };
 
 // 오늘 감정 매핑
-const mapTodayEmotion = (raw) => {
+const mapTodayEmotion = raw => {
     if (!raw) {
         return {
             name: '보호 대상자',
@@ -184,14 +176,13 @@ const mapTodayEmotion = (raw) => {
     };
 };
 
-// 최근 7일용 map 함수는 그대로 둠 (실제 API 쓸 때 사용)
-// (지금은 USE_MOCK=true니까 안 타도 됨)
-const mapWeeklyEmotion = (list) => {
+// 최근 7일(오늘 포함) 슬롯을 항상 생성
+const mapWeeklyEmotion = list => {
     const daysKo = ['일', '월', '화', '수', '목', '금', '토'];
 
     const mapByDate = new Map();
     if (Array.isArray(list)) {
-        list.forEach((item) => {
+        list.forEach(item => {
             const key =
                 (item.date || item.dateLabel || '').toString().slice(0, 10); // YYYY-MM-DD
             mapByDate.set(key, {
@@ -227,12 +218,12 @@ const mapWeeklyEmotion = (list) => {
 };
 
 // 오늘 일정 매핑 (연결된 보호 대상자 일정)
-const mapTodaySchedules = (list) => {
+const mapTodaySchedules = list => {
     if (!Array.isArray(list)) return [];
 
     console.log('[GuardianHome] raw schedules =', list);
 
-    const mapped = list.map((item) => {
+    const mapped = list.map(item => {
         const startRaw =
             item.start ??
             item.startTime ??
@@ -249,8 +240,7 @@ const mapTodaySchedules = (list) => {
         const startHHmm = extractHHmm(startRaw);
         const endHHmm = extractHHmm(endRaw);
 
-        const time =
-            startHHmm && endHHmm ? `${startHHmm} ~ ${endHHmm}` : '';
+        const time = startHHmm && endHHmm ? `${startHHmm} ~ ${endHHmm}` : '';
 
         return {
             id: item.id ?? item.scheduleId,
@@ -267,7 +257,7 @@ const mapTodaySchedules = (list) => {
 };
 
 // 보호자 아바타
-const getGuardianAvatarSource = (genderRaw) => {
+const getGuardianAvatarSource = genderRaw => {
     let gender = genderRaw;
     if (typeof genderRaw === 'boolean') {
         gender = genderRaw ? 'male' : 'female';
@@ -365,7 +355,7 @@ function ScheduleRow({ item, done, onToggle }) {
 
 const GuardianHomeScreen = ({ navigation }) => {
     const [loading, setLoading] = useState(true);
-    the [refreshing, setRefreshing] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
     const [errorMsg, setErrorMsg] = useState(null);
 
     // 보호 대상자(노인)
@@ -402,19 +392,19 @@ const GuardianHomeScreen = ({ navigation }) => {
 
             // 🔹 오늘 감정, 주간 감정, 오늘 일정, 노인 정보 한 번에 가져오기
             const [todayRes, weeklyRes, scheduleRes, elderRes] = await Promise.all([
-                getTodayTopEmotion().catch((e) => {
+                getTodayTopEmotion().catch(e => {
                     console.log('[GuardianHome] todayTopEmotion error', e);
                     return null;
                 }),
-                getLastWeekEmotionSummary().catch((e) => {
+                getLastWeekEmotionSummary().catch(e => {
                     console.log('[GuardianHome] weeklyEmotion error', e);
                     return [];
                 }),
-                getGuardianTodayScheduleApi().catch((e) => {
+                getGuardianTodayScheduleApi().catch(e => {
                     console.log('[GuardianHome] todaySchedules error', e);
                     return [];
                 }),
-                getElderInfoApi().catch((e) => {
+                getElderInfoApi().catch(e => {
                     console.log('[GuardianHome] elderInfo error', e);
                     return null;
                 }),
@@ -429,7 +419,7 @@ const GuardianHomeScreen = ({ navigation }) => {
                 elderRes?.targetName ||
                 null;
 
-            setElderName((prev) => {
+            setElderName(prev => {
                 if (elderNameFromApi) return elderNameFromApi;
                 if (mappedToday.name && mappedToday.name !== '보호 대상자') {
                     return mappedToday.name;
@@ -440,23 +430,32 @@ const GuardianHomeScreen = ({ navigation }) => {
             setTodayEmotionCode(mappedToday.emotionCode);
             setTodayEmotionSummary(mappedToday.summary);
 
-            // 🔥 목데이터 사용 여부
-            if (USE_MOCK) {
-                // → 주간 감정: 3일짜리 목데이터
-                setWeeklyEmotion(MOCK_WEEKLY_EMOTION);
+            // 🔥 주간 감정: 7칸은 항상 유지하고, 앞 3칸만 목데이터로 채우기
+            let weeklyBase = mapWeeklyEmotion([]); // 비어있는 7칸 생성
 
-                // → 일정은 목데이터 안 쓰고, 그냥 비워둠 (화면에는 "등록된 일정이 없습니다" 뜸)
-                setTodaySchedules([]);
+            if (USE_MOCK_WEEKLY) {
+                weeklyBase = weeklyBase.map((item, idx) => {
+                    // idx: 0,1,2만 감정 채우고 나머지는 비워둠
+                    if (idx === 0) {
+                        return { ...item, emotion: '0' }; // 기쁨
+                    }
+                    if (idx === 1) {
+                        return { ...item, emotion: '3' }; // 불안
+                    }
+                    if (idx === 2) {
+                        return { ...item, emotion: '1' }; // 슬픔
+                    }
+                    return { ...item, emotion: null }; // 나머지 4칸은 비우기
+                });
             } else {
-                // → 실제 API 데이터 사용
                 if (Array.isArray(weeklyRes)) {
-                    setWeeklyEmotion(mapWeeklyEmotion(weeklyRes));
-                } else {
-                    setWeeklyEmotion([]);
+                    weeklyBase = mapWeeklyEmotion(weeklyRes);
                 }
-                setTodaySchedules(mapTodaySchedules(scheduleRes));
             }
+            setWeeklyEmotion(weeklyBase);
 
+            // 🔹 오늘 일정: 목데이터는 사용 안 하고, 그냥 실제/빈 배열
+            setTodaySchedules(mapTodaySchedules(scheduleRes));
             setDoneIds(new Set());
         } catch (e) {
             console.log('[GuardianHome] loadAll fatal', e);
@@ -480,8 +479,8 @@ const GuardianHomeScreen = ({ navigation }) => {
         loadAll();
     };
 
-    const toggleDone = (id) => {
-        setDoneIds((prev) => {
+    const toggleDone = id => {
+        setDoneIds(prev => {
             const next = new Set(prev);
             if (next.has(id)) next.delete(id);
             else next.add(id);
@@ -624,7 +623,7 @@ const GuardianHomeScreen = ({ navigation }) => {
                         주간 감정 변화
                     </Text>
                     <View className="bg-white rounded-3xl p-4 flex-row justify-between shadow-sm border border-gray-100">
-                        {weeklyEmotion.map((item) => {
+                        {weeklyEmotion.map(item => {
                             const hasEmotion = !!item.emotion;
                             const emoImg = hasEmotion
                                 ? getEmotionImage(item.emotion)
@@ -676,7 +675,7 @@ const GuardianHomeScreen = ({ navigation }) => {
 
                     <View className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
                         {todaySchedules.length > 0 ? (
-                            todaySchedules.map((schedule) => (
+                            todaySchedules.map(schedule => (
                                 <ScheduleRow
                                     key={schedule.id}
                                     item={schedule}

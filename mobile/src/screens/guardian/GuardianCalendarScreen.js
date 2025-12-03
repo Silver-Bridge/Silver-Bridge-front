@@ -87,12 +87,12 @@ const getEmotionImage = (emotion) => {
     return require('../../../assets/emotion_6_neutral.png');
 };
 
-// 🔹 ★★ 데모용 목데이터 설정 ★★ ===============================================
+// 🔹 ★★ 데모용 감정 목데이터 설정 (일정은 X) ★★ ===========================
 
-// 👉 목데이터 사용 여부 (실제 배포/연동할 때는 false로 바꾸면 됨)
-const USE_MOCK = true;
+// 👉 감정 목데이터 사용 여부
+const USE_MOCK_EMOTION = true;
 
-// 👉 목데이터를 적용할 연도 (올해에 맞게 수정)
+// 👉 목데이터를 적용할 연도
 const MOCK_YEAR = 2025;
 
 // 👉 12월 1,2,3일 감정 목데이터
@@ -103,21 +103,7 @@ const MOCK_DECEMBER_EMOTIONS = {
     [`${MOCK_YEAR}-12-03`]: '1', // 슬픔
 };
 
-// 👉 12월 1,2,3일 일정 목데이터 (이미 화면에서 쓰는 형태로 맞춰놓음)
-const MOCK_DECEMBER_SCHEDULES = {
-    [`${MOCK_YEAR}-12-01`]: [
-        { id: 'm1', title: '내과 진료', time: '10:00 ~ 10:30', location: '부산 병원 1층' },
-        { id: 'm2', title: '약 복용 알림', time: '20:00', location: '' },
-    ],
-    [`${MOCK_YEAR}-12-02`]: [
-        { id: 'm3', title: '물리치료', time: '15:00 ~ 15:40', location: '재활의학과' },
-    ],
-    [`${MOCK_YEAR}-12-03`]: [
-        { id: 'm4', title: '가벼운 산책', time: '09:30', location: '집 근처 공원' },
-    ],
-};
-
-// 백엔드 일정 → 화면용
+// 🔹 백엔드 일정 → 화면용
 const mapSchedules = (list) => {
     if (!Array.isArray(list)) return [];
 
@@ -183,8 +169,8 @@ const GuardianCalendarScreen = () => {
         try {
             setLoadingEmotion(true);
 
-            // 🔸 데모: 12월 + 목데이터 사용 시, 백엔드 대신 목데이터 사용
-            if (USE_MOCK && year === MOCK_YEAR && month === 12) {
+            // 🔸 데모: 12월 + 감정 목데이터 사용 시, 백엔드 대신 목데이터 사용
+            if (USE_MOCK_EMOTION && year === MOCK_YEAR && month === 12) {
                 setEmotionByDate(MOCK_DECEMBER_EMOTIONS);
                 return;
             }
@@ -235,13 +221,6 @@ const GuardianCalendarScreen = () => {
                     marks[d] = true;
                 });
 
-                // 🔸 데모: 12월이면 목데이터 일정 날짜도 mark
-                if (USE_MOCK && year === MOCK_YEAR && month === 12) {
-                    Object.keys(MOCK_DECEMBER_SCHEDULES).forEach((d) => {
-                        marks[d] = true;
-                    });
-                }
-
                 setMonthMarks(marks);
 
                 // 🔹 같은 타이밍에 감정 요약도 로딩
@@ -266,16 +245,7 @@ const GuardianCalendarScreen = () => {
         try {
             setLoadingSchedules(true);
 
-            // 🔸 데모: 12월 1~3일이면 목데이터 우선 사용
-            if (USE_MOCK && date.startsWith(`${MOCK_YEAR}-12-`)) {
-                const mock = MOCK_DECEMBER_SCHEDULES[date];
-                if (mock) {
-                    setScheduleList(mock);
-                    return;
-                }
-            }
-
-            // 🔹 나머지는 기존 백엔드 호출
+            // 🔹 일정은 항상 백엔드에서만 가져옴 (목데이터 X)
             const list = await getSchedulesByDateApi({ date });
             setScheduleList(mapSchedules(list));
         } catch (e) {
@@ -313,7 +283,7 @@ const GuardianCalendarScreen = () => {
     const getMarkedDates = () => {
         const marked = {};
 
-        // 1) 일정이 있는 날짜 표시
+        // 1) 일정이 있는 날짜 표시 (백엔드 기준)
         Object.keys(monthMarks).forEach((date) => {
             marked[date] = {
                 marked: true,
@@ -321,7 +291,7 @@ const GuardianCalendarScreen = () => {
             };
         });
 
-        // 2) 감정 데이터 합치기
+        // 2) 감정 데이터 합치기 (목데이터 + 백엔드)
         Object.keys(emotionByDate).forEach((date) => {
             if (!marked[date]) {
                 marked[date] = {};
