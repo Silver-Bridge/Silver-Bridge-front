@@ -31,6 +31,7 @@
       },
       "edgeToEdgeEnabled": true,
       "usesCleartextTraffic": true,
+      "softwareKeyboardLayoutMode": "resize",
       "intentFilters": [
         {
           "action": "VIEW",
