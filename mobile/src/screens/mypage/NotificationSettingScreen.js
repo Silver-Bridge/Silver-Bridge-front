@@ -44,7 +44,6 @@ export default function NotificationSettingScreen() {
         try {
             setSaving(true);
 
-            // 1) 백엔드 반영 (PATCH /api/mypage/alarm)
             await updateAlarm(alarmActive);
 
             // 2) USER_INFO 갱신
@@ -70,7 +69,6 @@ export default function NotificationSettingScreen() {
     return (
         <SafeAreaView className="flex-1 bg-white">
             <ScrollView className="flex-1">
-                {/* 헤더 */}
                 <View className="flex-row items-center py-4 px-4 border-b border-gray-200">
                     <TouchableOpacity onPress={() => navigation.goBack()}>
                         <Text className="text-2xl">{'←'}</Text>

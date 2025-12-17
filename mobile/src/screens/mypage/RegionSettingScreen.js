@@ -42,7 +42,6 @@ export default function RegionSettingScreen() {
                         setCurrentRegion(info.region);
                         setData((s) => ({ ...s, region: info.region }));
                     } else if (!currentRegion) {
-                        // 아무 정보 없으면 기본값 경상도
                         setCurrentRegion('경상도');
                         setData((s) => ({ ...s, region: '경상도' }));
                     }
@@ -63,21 +62,17 @@ export default function RegionSettingScreen() {
                 setLoading(false);
             }
         })();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [setData]);
 
-    // 현재 선택된 이미지
     const selectedImageSource = useMemo(() => {
         const key = currentRegion || '경상도';
         return regionImages[key] || regionImages['경상도'];
     }, [currentRegion]);
 
-    // ✅ DB + 로컬 모두 반영
     const applyRegionChange = async (regionName) => {
         try {
             setSaving(true);
 
-            // 1) 백엔드 (PATCH /api/mypage/member/region)
             await updateRegion(regionName);
 
             // 2) USER_INFO 갱신
@@ -89,7 +84,6 @@ export default function RegionSettingScreen() {
             };
             await AsyncStorage.setItem(USER_INFO_KEY, JSON.stringify(newInfo));
 
-            // 3) 컨텍스트/화면 갱신
             setCurrentRegion(regionName);
             setData((s) => ({ ...s, region: regionName }));
 
@@ -130,9 +124,8 @@ export default function RegionSettingScreen() {
     return (
         <SafeAreaView
             className="flex-1 bg-white"
-            edges={['left', 'right', 'top']} // 상단은 커스텀 헤더로
+            edges={['left', 'right', 'top']}
         >
-            {/* 상단 헤더 (회원가입 화면 느낌으로 맞춤) */}
             <View className="flex-row items-center px-4 pt-3 pb-2 border-b border-gray-100">
                 <TouchableOpacity
                     onPress={() => navigation.goBack()}
@@ -146,11 +139,9 @@ export default function RegionSettingScreen() {
                         지역 설정
                     </Text>
                 </View>
-                {/* 오른쪽은 비워두기 (정렬용) */}
                 <View style={{ width: 32 }} />
             </View>
 
-            {/* 본문 영역 - 가운데 정렬 + 최대 폭 고정 (SignupRegionScreen과 동일 패턴) */}
             <View className="flex-1 items-center px-4 mt-4">
                 <View
                     style={{
@@ -158,7 +149,6 @@ export default function RegionSettingScreen() {
                         maxWidth: 480,
                     }}
                 >
-                    {/* 미리보기 이미지 카드 */}
                     <View className="w-full items-center justify-center rounded-2xl border border-gray-200 bg-gray-50 overflow-hidden">
                         <Image
                             source={selectedImageSource}
@@ -167,7 +157,6 @@ export default function RegionSettingScreen() {
                         />
                     </View>
 
-                    {/* 현재 선택 텍스트 */}
                     <Text className="mt-3 text-center text-[17px] text-gray-700">
                         현재 선택:{' '}
                         <Text className="font-semibold text-teal-700">
@@ -179,12 +168,10 @@ export default function RegionSettingScreen() {
                         </Text>
                     </Text>
 
-                    {/* 설명 텍스트 */}
                     <Text className="mt-2 text-center text-[14px] text-gray-500">
                         선택한 지역에 맞춰 챗봇의 사투리/방언이 적용됩니다.
                     </Text>
 
-                    {/* 셀렉터 라벨 + 버튼 */}
                     <View className="mt-7">
                         <Text className="mb-2 text-[18px] text-gray-500">
                             거주 지역
@@ -223,7 +210,6 @@ export default function RegionSettingScreen() {
                 </View>
             </View>
 
-            {/* 하단 버튼 - 가운데 + 최대 폭 고정 */}
             <View
                 className="px-6 border-t border-gray-100 bg-white"
                 style={{ paddingBottom: insets.bottom + 10, paddingTop: 10 }}
@@ -242,7 +228,6 @@ export default function RegionSettingScreen() {
                         activeOpacity={canSave ? 0.8 : 1}
                         disabled={!canSave}
                         onPress={() => {
-                            // 사실 선택 즉시 서버에 저장하므로 여기서는 단순히 뒤로가기만 해도 됨
                             navigation.goBack();
                         }}
                     >
@@ -253,7 +238,6 @@ export default function RegionSettingScreen() {
                 </View>
             </View>
 
-            {/* 지역 선택 모달 - 회원가입 화면처럼 바텀시트 스타일로 변경 */}
             <Modal
                 animationType="slide"
                 transparent
@@ -274,7 +258,6 @@ export default function RegionSettingScreen() {
                                 alignSelf: 'center',
                             }}
                         >
-                            {/* 상단 핸들바 */}
                             <View className="self-center w-10 h-1.5 rounded-full bg-gray-300 mb-3" />
 
                             <Text className="text-[17px] font-semibold mb-3">

@@ -12,15 +12,15 @@ export default function CalendarStack() {
     return (
         <Stack.Navigator
             screenOptions={{
-                headerBackTitleVisible: false, // 🔹 모든 화면에서 "< 제목"의 "제목" 숨김
-                headerBackTitle: '',           // 🔹 혹시 모를 잔재까지 제거
+                headerBackTitleVisible: false,
+                headerBackTitle: '',
             }}
         >
             <Stack.Screen
                 name="CalendarMain"
                 component={CalendarScreen}
                 options={{    headerShown: false,
-                    title: '',  }} // 우리는 캘린더 내부에서 커스텀 헤더 쓰니까
+                    title: '',  }}
             />
 
             <Stack.Screen

@@ -16,13 +16,10 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import moment from 'moment';
 
-// ✅ 오늘 일정은 calendar API에서 날짜 기준으로 가져오도록 변경
 import { getSchedulesByDateApi } from '../shared/api/calendar';
-// ✅ 어시스턴트 제안은 기존 home API 그대로 사용
 import { getAssistantSuggestionsApi } from '../shared/api/home';
 import {useAlarmPolling} from "../shared/hooks/useAlarmPolling";
 
-// 🔹 타임존(예: +09:00) 유지해서 파싱
 function parseDateKeepOffset(s) {
     if (!s) return null;
     const m = moment.parseZone(String(s));
@@ -54,11 +51,9 @@ function useResponsiveGaps() {
     );
 }
 
-// 🔹 성별에 따른 노인 아바타 선택 함수 (boolean 대응)
 function getElderlyAvatarSource(genderRaw) {
     let gender = genderRaw;
 
-    // gender가 boolean이면 true = 남, false = 여 로 변환
     if (typeof genderRaw === 'boolean') {
         gender = genderRaw ? 'male' : 'female';
     }
@@ -73,7 +68,6 @@ function getElderlyAvatarSource(genderRaw) {
         return require('../../assets/avatar_elderly_male.png');
     }
 
-    // 나머지는 기본 여성
     return require('../../assets/avatar_elderly_female.png');
 }
 
@@ -92,7 +86,6 @@ function TopBar({ name, gender, ui }) {
         >
             <View className="flex-row items-center justify-between">
                 <View className="flex-row items-center">
-                    {/* 🔹 노인 프로필 아바타 (성별에 따라 변경) */}
                     <View
                         style={{
                             width: avatar,
@@ -164,7 +157,6 @@ function ScheduleRow({ item, done, onToggle }) {
         >
             <View className="flex-row items-center justify-between">
                 <View className="flex-1 pr-3">
-                    {/* 상단: 포인트 점 + 제목 */}
                     <View className="flex-row items-center mb-2">
                         <View
                             style={{ backgroundColor: accent }}
@@ -186,7 +178,6 @@ function ScheduleRow({ item, done, onToggle }) {
                         </Text>
                     </View>
 
-                    {/* 중앙: 시간 (굵게) */}
                     <Text
                         className="text-[22px] font-extrabold tracking-tight text-gray-900"
                         style={
@@ -201,7 +192,6 @@ function ScheduleRow({ item, done, onToggle }) {
                         {timeText}
                     </Text>
 
-                    {/* 하단: 장소 (있을 때만) */}
                     {!!item.place && (
                         <View className="mt-2 flex-row items-center">
                             <Ionicons name="location-outline" size={16} color="#6B7280" />
@@ -310,7 +300,6 @@ function Assistant({ suggestions, loading, error, onRetry, ui }) {
     return (
         <SectionCard ui={ui} className="mt-3">
             <View className="flex-row items-center">
-                {/* 🔹 여기에서 로고/마스코트 이미지 사용 (gif 가능) */}
                 <View
                     style={{ width: 80, height: 80 }}
                     className="rounded-3xl bg-[#d9eadc] items-center justify-center mr-3"
@@ -395,7 +384,6 @@ export default function HomeScreen() {
 
 
 
-    // USER_INFO에서 이름/성별
     useEffect(() => {
         (async () => {
             try {
@@ -411,7 +399,6 @@ export default function HomeScreen() {
         })();
     }, []);
 
-    // ✅ 오늘 날짜 문자열(YYYY-MM-DD) 생성
     const getTodayDateString = () => {
         const today = new Date();
         const yyyy = today.getFullYear();
@@ -420,7 +407,6 @@ export default function HomeScreen() {
         return `${yyyy}-${mm}-${dd}`;
     };
 
-    // ✅ /api/calendar/schedules?date=YYYY-MM-DD 로 오늘 일정 조회
     const fetchSchedules = useCallback(async () => {
         setErrSch('');
         setLoadingSch(true);
@@ -431,7 +417,6 @@ export default function HomeScreen() {
             const mapped = (Array.isArray(list) ? list : []).map((item) => ({
                 id: item.id,
                 title: item.title,
-                // 🔹 타임존 있는 문자열 그대로 보관
                 start: item.start_at,
                 end: item.end_at,
                 place: item.location || item.place || '',
@@ -493,7 +478,6 @@ export default function HomeScreen() {
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
                 }
             >
-                {/* 🔹 성별 전달해서 노인 아바타 변경 */}
                 <TopBar name={name} gender={gender} ui={ui} />
 
                 <TodaySchedule

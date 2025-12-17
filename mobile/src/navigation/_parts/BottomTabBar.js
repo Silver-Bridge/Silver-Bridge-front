@@ -14,7 +14,7 @@ const ICONS = {
 export default function BottomTabBar({ state, descriptors, navigation }) {
     return (
         <SafeAreaView edges={['bottom']} className="bg-white">
-            {/* 배경 카드 느낌 */}
+
             <View className="mx-3 mb-2 rounded-2xl bg-white shadow-md shadow-black/10 border border-gray-100">
                 <View className="flex-row items-stretch justify-between px-2 py-1">
                     {state.routes.map((route, index) => {

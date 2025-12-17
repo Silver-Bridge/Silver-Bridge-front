@@ -72,12 +72,10 @@ export default function SignupRegionScreen({ navigation }) {
     return (
         <SafeAreaView
             className="flex-1 bg-white"
-            edges={['left', 'right', 'bottom']}   // 상단은 Header에서 처리
+            edges={['left', 'right', 'bottom']}
         >
-            {/* 상단 헤더 */}
             <Header title="지역을 선택해주세요" />
 
-            {/* 본문 영역 - 가운데 정렬 + 최대 폭 고정 */}
             <View className="flex-1 items-center px-4 mt-4">
                 <View
                     style={{
@@ -85,7 +83,6 @@ export default function SignupRegionScreen({ navigation }) {
                         maxWidth: 480,
                     }}
                 >
-                    {/* 미리보기 이미지 카드 */}
                     <View className="w-full items-center justify-center rounded-2xl border border-gray-200 bg-gray-50 overflow-hidden">
                         <Image
                             source={selectedImageSource}
@@ -94,7 +91,6 @@ export default function SignupRegionScreen({ navigation }) {
                         />
                     </View>
 
-                    {/* 현재 선택 텍스트 */}
                     <Text className="mt-3 text-center text-[17px] text-gray-700">
                         현재 선택:{' '}
                         <Text className="font-semibold text-teal-700">
@@ -102,7 +98,6 @@ export default function SignupRegionScreen({ navigation }) {
                         </Text>
                     </Text>
 
-                    {/* 셀렉터 라벨 + 버튼 */}
                     <View className="mt-7">
                         <Text className="mb-2 text-[18px] text-gray-500">거주 지역</Text>
                         <TouchableOpacity
@@ -123,7 +118,6 @@ export default function SignupRegionScreen({ navigation }) {
                 </View>
             </View>
 
-            {/* 하단 버튼 - 가운데 + 최대 폭 고정 */}
             <View
                 className="px-6"
                 style={{ paddingBottom: insets.bottom + 10 }}
@@ -139,7 +133,6 @@ export default function SignupRegionScreen({ navigation }) {
                 </View>
             </View>
 
-            {/* 지역 선택 모달 */}
             <Modal
                 animationType="slide"
                 transparent
@@ -159,7 +152,6 @@ export default function SignupRegionScreen({ navigation }) {
                             alignSelf: 'center',
                         }}
                     >
-                        {/* 상단 핸들바 */}
                         <View className="self-center w-12 h-1.5 rounded-full bg-gray-300 mb-4" />
 
                         <Text className="text-[20px] font-semibold mb-4">

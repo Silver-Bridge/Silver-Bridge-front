@@ -32,7 +32,7 @@ import {
 
 moment.locale('ko');
 
-// 🔹 타임존(+09:00 등) 그대로 유지해서 시간 포맷
+// 시간 포맷
 const formatTimeRange = (startRaw, endRaw) => {
     const startM = startRaw ? moment.parseZone(startRaw) : null;
     const endM = endRaw ? moment.parseZone(endRaw) : null;
@@ -47,9 +47,7 @@ const formatTimeRange = (startRaw, endRaw) => {
     return '시간 정보 없음';
 };
 
-/**
- * 일정 카드 컴포넌트 (노인 친화: 폰트 크게!)
- */
+
 const EventItem = ({ event, onPress, onDelete }) => {
     // ✅ 표시용 시간은 일정 시작/종료 시간만 사용
     const startRaw = event.start_at || event.startAt || null;
@@ -69,17 +67,13 @@ const EventItem = ({ event, onPress, onDelete }) => {
             onPress={() => onPress?.(event)}
         >
             <View className="flex-row items-center justify-between">
-                {/* 왼쪽: 일정 정보 */}
                 <View className="flex-1 pr-4">
-                    {/* 시간 (굵고 크게) */}
                     <Text
                         className="text-gray-700 font-bold mb-1"
                         style={{ fontSize: 19 }}
                     >
                         {timeStr}
                     </Text>
-
-                    {/* 제목 (더 크게) */}
                     <Text
                         className="text-gray-900 font-extrabold"
                         numberOfLines={2}
@@ -88,7 +82,6 @@ const EventItem = ({ event, onPress, onDelete }) => {
                         {event.title}
                     </Text>
 
-                    {/* 장소 */}
                     {!!event.location && (
                         <View className="mt-2 flex-row items-center">
                             <Ionicons
@@ -105,8 +98,6 @@ const EventItem = ({ event, onPress, onDelete }) => {
                             </Text>
                         </View>
                     )}
-
-                    {/* 설명(메모) */}
                     {!!event.description && (
                         <Text
                             className="mt-2 text-gray-700"
@@ -118,7 +109,6 @@ const EventItem = ({ event, onPress, onDelete }) => {
                     )}
                 </View>
 
-                {/* 오른쪽: 삭제 버튼 */}
                 <TouchableOpacity
                     onPress={() => onDelete?.(event)}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -132,7 +122,6 @@ const EventItem = ({ event, onPress, onDelete }) => {
     );
 };
 
-/** 일정 추가 버튼 */
 const AddScheduleButton = ({ navigation }) => (
     <View className="items-center pt-4 pb-2">
         <TouchableOpacity
@@ -161,7 +150,6 @@ export default function CalendarScreen() {
     const [loadingDots, setLoadingDots] = useState(false);
     const [loadingEvents, setLoadingEvents] = useState(false);
 
-    /** 1) 월별 dot 로드 */
     const loadDotsForMonth = useCallback(
         async (monthToLoad) => {
             setLoadingDots(true);
@@ -191,7 +179,6 @@ export default function CalendarScreen() {
         [],
     );
 
-    /** 2) 특정 날짜의 상세 일정 로드 */
     const loadEventsForDate = useCallback(
         async (date) => {
             setLoadingEvents(true);
@@ -221,7 +208,6 @@ export default function CalendarScreen() {
         [],
     );
 
-    /** 수정 화면 이동 */
     const handleEditEvent = (event) => {
         if (!event?.id) return;
         navigation.navigate('ScheduleEdit', {
@@ -230,7 +216,6 @@ export default function CalendarScreen() {
         });
     };
 
-    /** 삭제 */
     const handleDeleteEvent = (event) => {
         if (!event?.id) return;
 
@@ -263,7 +248,6 @@ export default function CalendarScreen() {
         );
     };
 
-    /** 포커스 시 새로고침 */
     useFocusEffect(
         useCallback(() => {
             loadDotsForMonth(currentMonth);
@@ -276,7 +260,6 @@ export default function CalendarScreen() {
         ]),
     );
 
-    /** markedDates 계산 */
     const markedDates = useMemo(() => {
         const marked = { ...markedDots };
         marked[selectedDate] = {
@@ -288,7 +271,6 @@ export default function CalendarScreen() {
         return marked;
     }, [selectedDate, markedDots]);
 
-    /** 오늘 버튼 */
     const todayStr = today;
     const goToToday = () => {
         const todayMoment = moment(todayStr);
@@ -301,14 +283,12 @@ export default function CalendarScreen() {
         }
     };
 
-    /** 월 변경 */
     const handleMonthChange = (month) => {
         const newMonth = moment(month.dateString);
         setCurrentMonth(newMonth);
         loadDotsForMonth(newMonth);
     };
 
-    /** 날짜 선택 */
     const handleDayPress = (day) => {
         setSelectedDate(day.dateString);
         loadEventsForDate(day.dateString);
@@ -316,7 +296,6 @@ export default function CalendarScreen() {
 
     return (
         <SafeAreaView className="flex-1 bg-white">
-            {/* 헤더 */}
             <View className="flex-row items-center justify-between px-5 py-4 border-b border-gray-200">
                 <Text className="font-extrabold text-gray-900" style={{ fontSize: 24 }}>
                     {currentMonth.format('YYYY년 MM월')}
@@ -332,7 +311,6 @@ export default function CalendarScreen() {
             </View>
 
             <ScrollView className="flex-1">
-                {/* 캘린더 */}
                 <View className="px-3 pt-2">
                     <Calendar
                         key={currentMonth.format('YYYY-MM')}
@@ -358,7 +336,6 @@ export default function CalendarScreen() {
                     />
                 </View>
 
-                {/* 하루 일정 목록 */}
                 <View className="mt-6 px-6">
                     <View className="flex-row justify-between items-center mb-4">
                         <Text

@@ -8,12 +8,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useSignup } from '../signup/SignupContext';
 
-// 🔹 추가: 백엔드 연결 정보 API
 import { getElderInfoApi, getGuardianInfoApi } from '../../shared/api/guardian';
 
 const USER_INFO_KEY = 'USER_INFO';
 
-/** 보호자 아바타 선택 */
 const getGuardianAvatarSource = (genderRaw) => {
     let gender = genderRaw;
     if (typeof genderRaw === 'boolean') {
@@ -27,7 +25,6 @@ const getGuardianAvatarSource = (genderRaw) => {
     return require('../../../assets/avatar_guardian_female.png');
 };
 
-/** 노인 아바타 선택 */
 const getElderAvatarSource = (genderRaw) => {
     let gender = genderRaw;
     if (typeof genderRaw === 'boolean') {
@@ -41,13 +38,11 @@ const getElderAvatarSource = (genderRaw) => {
     return require('../../../assets/avatar_elderly_female.png');
 };
 
-/** 역할 문자열을 정규화해서 보호자인지 판별 */
 const isRoleCaregiver = (roleRaw) => {
     const r = (roleRaw || '').toString().toUpperCase();
     return ['GUARDIAN', 'CARE_GIVER', 'ROLE_GUARDIAN', 'PROTECTOR', 'ROLE_NOK'].includes(r);
 };
 
-/** 공용 카드 래퍼 – 패딩/둥근모서리/그림자 통일 */
 const Card = ({ children, className = '' }) => (
     <View
         className={`mx-4 mt-4 rounded-2xl bg-white px-5 py-4 ${className}`}
@@ -63,7 +58,6 @@ const Card = ({ children, className = '' }) => (
     </View>
 );
 
-/** 공통 설정 아이템 */
 const SettingItem = ({ title, value, onPress, iconName }) => (
     <TouchableOpacity
         onPress={onPress}
@@ -153,13 +147,10 @@ export default function MyPageScreen() {
                     };
                 }
 
-                // 1차로 USER_INFO / signup 정보 반영
                 setUser(baseUser);
 
-                // 🔹 역할 기준으로 백엔드 연결 정보 가져오기
                 const roleForCheck = baseUser.role;
                 if (isRoleCaregiver(roleForCheck)) {
-                    // 보호자 → 연결된 노인 정보
                     try {
                         const data = await getElderInfoApi();
                         setUser((u) => ({
@@ -169,10 +160,8 @@ export default function MyPageScreen() {
                         }));
                     } catch (e) {
                         console.log('[MyPage] getElderInfoApi error:', e?.message || e);
-                        // 연결 안 돼있으면 400 + message 내려올 수 있으니 경고만 찍고 넘어가도 됨
                     }
                 } else {
-                    // 노인 → 연결된 보호자 정보
                     try {
                         const data = await getGuardianInfoApi();
                         setUser((u) => ({
@@ -188,7 +177,6 @@ export default function MyPageScreen() {
                 console.log('[MyPage] load USER_INFO error:', e?.message || e);
             }
         })();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isFocused, signupData]);
 
     const {
@@ -237,7 +225,6 @@ export default function MyPageScreen() {
 
     return (
         <SafeAreaView className="flex-1 bg-[#F5F5F5]">
-            {/* 고정 헤더 */}
             <View className="bg-white border-b border-gray-200 px-4 py-3 flex-row items-center justify-between">
                 <TouchableOpacity
                     onPress={() => navigation.goBack()}
@@ -249,7 +236,6 @@ export default function MyPageScreen() {
                 <View style={{ width: 24 }} />
             </View>
 
-            {/* 콘텐츠 */}
             <ScrollView
                 className="flex-1"
                 contentContainerStyle={{ paddingBottom: 32 }}
@@ -288,7 +274,6 @@ export default function MyPageScreen() {
                     </View>
                 </Card>
 
-                {/* 연결 정보 카드 */}
                 <Card className="bg-[#E0F2F1]">
                     <Text className="text-sm text-teal-800 font-semibold mb-1">
                         {connectionTitle}
@@ -333,7 +318,6 @@ export default function MyPageScreen() {
                     )}
                 </Card>
 
-                {/* 로그아웃 버튼 */}
                 <TouchableOpacity
                     className="mt-8 mx-4 rounded-xl py-4 items-center bg-white"
                     style={{

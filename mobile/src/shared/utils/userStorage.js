@@ -4,7 +4,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const USER_INFO_KEY = 'USER_INFO';
 const FONT_SCALE_KEY = 'FONT_SCALE';
 
-// 현재 저장된 사용자 정보 가져오기
 export async function getStoredUser() {
     try {
         const raw = await AsyncStorage.getItem(USER_INFO_KEY);
@@ -16,7 +15,6 @@ export async function getStoredUser() {
     }
 }
 
-// USER_INFO 일부만 업데이트 (ex: { textsize: '크게' })
 export async function updateStoredUser(patch) {
     try {
         const current = (await getStoredUser()) || {};

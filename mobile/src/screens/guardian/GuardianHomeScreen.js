@@ -21,11 +21,10 @@ import {
     getElderInfoApi,
 } from '../../shared/api/guardian';
 
-// ==== 시간 파싱/포맷 유틸 (노인 홈과 동일) ====
 function parseDateLoose(s) {
     if (!s) return null;
     let t = String(s).trim().replace(' ', 'T');
-    t = t.replace(/\.\d{6}$/, m => '.' + m.slice(1, 4)); // .123456 -> .123
+    t = t.replace(/\.\d{6}$/, m => '.' + m.slice(1, 4));
     const d = new Date(t);
     return isNaN(d.getTime()) ? null : d;
 }
@@ -36,7 +35,6 @@ function fmtHHmm(d) {
     return `${hh}:${mm}`;
 }
 
-// ISO 문자열에서 HH:mm 부분만 추출
 const extractHHmm = iso => {
     if (!iso) return '';
     const str = String(iso);
@@ -50,17 +48,12 @@ const extractHHmm = iso => {
     return '';
 };
 
-// ===== 🔥 데모용 목데이터 플래그 =====
-const USE_MOCK_WEEKLY = true; // 주간 감정만 목데이터로 3칸 채우기
+const USE_MOCK_WEEKLY = true;
 
-// ---------------- 감정 스타일 & 이미지 매핑 -----------------
-
-// 텍스트/색상/그라데이션
 const getEmotionStyle = emotion => {
     const code = (emotion || '').toString().toUpperCase();
 
     switch (code) {
-        // 0: HAPPY / POSITIVE
         case 'HAPPY':
         case 'POSITIVE':
         case '0':
@@ -69,7 +62,6 @@ const getEmotionStyle = emotion => {
                 color: '#FBBF24',
                 gradient: ['#FFE082', '#FFB300'],
             };
-        // 1: SAD
         case 'SAD':
         case '1':
             return {
@@ -77,7 +69,6 @@ const getEmotionStyle = emotion => {
                 color: '#60A5FA',
                 gradient: ['#BFDBFE', '#3B82F6'],
             };
-        // 2: ANGRY
         case 'ANGRY':
         case '2':
             return {
@@ -85,7 +76,6 @@ const getEmotionStyle = emotion => {
                 color: '#F97373',
                 gradient: ['#FED7D7', '#F97373'],
             };
-        // 3: ANXIOUS
         case 'ANXIOUS':
         case '3':
             return {
@@ -93,7 +83,6 @@ const getEmotionStyle = emotion => {
                 color: '#A78BFA',
                 gradient: ['#E9D5FF', '#8B5CF6'],
             };
-        // 4: SURPRISE
         case 'SURPRISE':
         case '4':
             return {
@@ -101,7 +90,6 @@ const getEmotionStyle = emotion => {
                 color: '#F472B6',
                 gradient: ['#FBCFE8', '#EC4899'],
             };
-        // 5: DISGUST
         case 'DISGUST':
         case '5':
             return {
@@ -109,7 +97,6 @@ const getEmotionStyle = emotion => {
                 color: '#84CC16',
                 gradient: ['#D9F99D', '#84CC16'],
             };
-        // 6: NEUTRAL & 기본
         case 'NEUTRAL':
         case '6':
         default:
@@ -121,7 +108,6 @@ const getEmotionStyle = emotion => {
     }
 };
 
-// 이모티콘 PNG
 const getEmotionImage = emotion => {
     const code = (emotion || '').toString().toUpperCase();
 
@@ -146,7 +132,6 @@ const getEmotionImage = emotion => {
     return require('../../../assets/emotion_6_neutral.png');
 };
 
-// 오늘 감정 매핑
 const mapTodayEmotion = raw => {
     if (!raw) {
         return {
@@ -176,7 +161,6 @@ const mapTodayEmotion = raw => {
     };
 };
 
-// 최근 7일(오늘 포함) 슬롯을 항상 생성
 const mapWeeklyEmotion = list => {
     const daysKo = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -184,7 +168,7 @@ const mapWeeklyEmotion = list => {
     if (Array.isArray(list)) {
         list.forEach(item => {
             const key =
-                (item.date || item.dateLabel || '').toString().slice(0, 10); // YYYY-MM-DD
+                (item.date || item.dateLabel || '').toString().slice(0, 10);
             mapByDate.set(key, {
                 emotion: item.emotion || item.topEmotion || item.code || null,
             });
@@ -217,7 +201,6 @@ const mapWeeklyEmotion = list => {
     return result;
 };
 
-// 오늘 일정 매핑 (연결된 보호 대상자 일정)
 const mapTodaySchedules = list => {
     if (!Array.isArray(list)) return [];
 
@@ -256,7 +239,6 @@ const mapTodaySchedules = list => {
     return mapped;
 };
 
-// 보호자 아바타
 const getGuardianAvatarSource = genderRaw => {
     let gender = genderRaw;
     if (typeof genderRaw === 'boolean') {
@@ -270,7 +252,6 @@ const getGuardianAvatarSource = genderRaw => {
     return require('../../../assets/avatar_guardian_female.png');
 };
 
-// 노인 홈의 ScheduleRow 그대로 사용
 function ScheduleRow({ item, done, onToggle }) {
     const accent =
         item?.color && item.color !== 'black' ? item.color : '#10b981';
@@ -294,7 +275,6 @@ function ScheduleRow({ item, done, onToggle }) {
         >
             <View className="flex-row items-center justify-between">
                 <View className="flex-1 pr-2">
-                    {/* 상단: 포인트 점 + 제목 */}
                     <View className="flex-row items-center mb-1.5">
                         <View
                             style={{ backgroundColor: accent }}
@@ -316,7 +296,6 @@ function ScheduleRow({ item, done, onToggle }) {
                         </Text>
                     </View>
 
-                    {/* 중앙: 시간 */}
                     <Text
                         className="text-[18px] font-extrabold tracking-tight text-gray-900"
                         style={
@@ -331,7 +310,6 @@ function ScheduleRow({ item, done, onToggle }) {
                         {timeText}
                     </Text>
 
-                    {/* 하단: 장소 */}
                     {!!item.place && (
                         <View className="mt-1.5 flex-row items-center">
                             <Ionicons

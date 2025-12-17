@@ -10,8 +10,8 @@ import {
     ScrollView,
     Platform,
     KeyboardAvoidingView,
-    Keyboard,                // ✅ 추가
-    TouchableWithoutFeedback // ✅ 추가
+    Keyboard,
+    TouchableWithoutFeedback
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -21,11 +21,9 @@ import { changePassword } from '../../shared/api/user';
 
 const USER_INFO_KEY = 'USER_INFO';
 
-// 비밀번호 유효성 검사 (8~20자, 문자/숫자 하나 이상)
 const isValidPassword = (pw) =>
     /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,20}$/.test(pw);
 
-/** 공통: 사용자 정보 row */
 function UserInfoRow({ label, value }) {
     return (
         <View className="mb-3">
@@ -37,7 +35,6 @@ function UserInfoRow({ label, value }) {
     );
 }
 
-/** 공통: 비밀번호 입력 필드 */
 function PasswordInput({
                            label,
                            value,
@@ -59,7 +56,7 @@ function PasswordInput({
                 autoCorrect={false}
                 value={value}
                 onChangeText={onChangeText}
-                blurOnSubmit={false} // 포커스 유지 -> 키보드 안 닫히게
+                blurOnSubmit={false}
             />
             {!!error && (
                 <Text className="text-[11px] text-red-500 mt-1">{error}</Text>
@@ -72,7 +69,6 @@ export default function MemberEditScreen() {
     const navigation = useNavigation();
     const { data: signupData = {}, setData } = useSignup() || {};
 
-    // 상단에 보여줄 유저 정보
     const [profile, setProfile] = useState({
         name: signupData.name || '',
         phoneNumber: signupData.phone || '',
@@ -80,7 +76,7 @@ export default function MemberEditScreen() {
     });
 
     // 비밀번호 입력 상태
-    const [oldPassword, setOldPassword] = useState(''); // == currentPassword
+    const [oldPassword, setOldPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -157,26 +153,23 @@ export default function MemberEditScreen() {
 
     return (
         <SafeAreaView className="flex-1 bg-[#F5F5F5]">
-            {/* 키보드 대응용 래퍼 */}
             <KeyboardAvoidingView
                 style={{ flex: 1 }}
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                keyboardVerticalOffset={0} // ✅ 위 여백 줄이기
+                keyboardVerticalOffset={0}
             >
-                {/* ✅ 화면 아무 데나 터치 시 키보드 내려가게 */}
                 <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
                     <View style={{ flex: 1 }}>
                         <ScrollView
                             className="flex-1"
                             keyboardShouldPersistTaps="handled"
-                            keyboardDismissMode="on-drag" // ✅ 스크롤 시에도 키보드 내려감
+                            keyboardDismissMode="on-drag"
                             contentContainerStyle={{
                                 flexGrow: 1,
                                 paddingBottom: 24,
                             }}
                         >
                             <View style={{ width: '100%', alignSelf: 'center' }}>
-                                {/* 헤더 */}
                                 <View className="w-full bg-white border-b border-gray-200">
                                     <View
                                         className="flex-row items-center py-4 px-4"
@@ -189,7 +182,6 @@ export default function MemberEditScreen() {
                                     </View>
                                 </View>
 
-                                {/* 상단 프로필 카드 */}
                                 <View
                                     className="mt-4 rounded-2xl bg-white px-5 py-4 shadow-sm border border-gray-100"
                                     style={{ width: '100%', maxWidth: 480, alignSelf: 'center' }}
@@ -208,7 +200,6 @@ export default function MemberEditScreen() {
                                     />
                                 </View>
 
-                                {/* 비밀번호 변경 카드 */}
                                 <View
                                     className="mt-5 rounded-2xl bg-white px-5 py-5 shadow-sm border border-gray-100 mb-4"
                                     style={{ width: '100%', maxWidth: 480, alignSelf: 'center' }}
@@ -220,7 +211,6 @@ export default function MemberEditScreen() {
                                         현재 비밀번호를 입력한 뒤, 새 비밀번호를 설정해 주세요.
                                     </Text>
 
-                                    {/* 현재 비밀번호 */}
                                     <PasswordInput
                                         label="현재 비밀번호"
                                         value={oldPassword}
@@ -229,7 +219,6 @@ export default function MemberEditScreen() {
                                         error={oldPasswordError}
                                     />
 
-                                    {/* 새 비밀번호 */}
                                     <PasswordInput
                                         label="새 비밀번호 (8~20자, 문자/숫자 하나 이상 포함)"
                                         value={newPassword}
@@ -242,7 +231,6 @@ export default function MemberEditScreen() {
                                         }
                                     />
 
-                                    {/* 새 비밀번호 확인 */}
                                     <PasswordInput
                                         label="새 비밀번호 확인"
                                         value={newPasswordConfirm}
@@ -256,7 +244,6 @@ export default function MemberEditScreen() {
                                         }
                                     />
 
-                                    {/* 변경 버튼 */}
                                     <TouchableOpacity
                                         className={`mt-6 rounded-xl py-4 items-center ${
                                             canChange ? 'bg-teal-600' : 'bg-gray-300'

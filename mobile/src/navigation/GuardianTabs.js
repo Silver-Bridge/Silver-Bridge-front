@@ -6,7 +6,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import BottomTabBar from './_parts/BottomTabBar';
 import GuardianHomeScreen from '../screens/guardian/GuardianHomeScreen';
 import MyPageScreen from '../screens/mypage/MyPageScreen';
-import GuardianStack from './GuardianStack';   // ✅ 추가
+import GuardianStack from './GuardianStack';
 
 const Tab = createBottomTabNavigator();
 
@@ -18,7 +18,6 @@ export default function GuardianTabs() {
         >
             <Tab.Screen name="홈" component={GuardianHomeScreen} />
 
-            {/* ✅ 캘린더 탭 안에 Stack 넣기 */}
             <Tab.Screen name="캘린더" component={GuardianStack} />
 
             <Tab.Screen name="마이페이지" component={MyPageScreen} />

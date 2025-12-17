@@ -10,7 +10,6 @@ import { updateTextsize } from '../../shared/api/user';
 const USER_INFO_KEY = 'USER_INFO';
 const FONT_SCALE_KEY = 'FONT_SCALE';
 
-// 5단계 크기 정의
 const FONT_SIZES = [14, 16, 18, 20, 22];
 const SIZE_LABELS = ['아주 작게', '조금 작게', '보통', '조금 크게', '크게'];
 
@@ -24,7 +23,6 @@ const LABEL_TO_INDEX = SIZE_LABELS.reduce((acc, label, idx) => {
     return acc;
 }, {});
 
-// 공용 버튼
 const PrimaryButton = ({ title, onPress, disabled }) => (
     <TouchableOpacity
         className={`mx-4 rounded-xl py-4 items-center ${disabled ? 'bg-gray-300' : 'bg-teal-600'}`}
@@ -99,17 +97,14 @@ export default function FontSettingScreen() {
             );
         });
 
-    // ✅ DB + 로컬 모두 업데이트
     const handleConfirm = async () => {
         const newLabel = currentLabel;
         const newFontScale = getScaleFromIndex(currentIndex);
 
         setSaving(true);
         try {
-            // 🔹 1) 백엔드 (PATCH /api/mypage/member/text-size)
-            await updateTextsize(newLabel); // ✅ 여기 수정 (객체 → 문자열)
+            await updateTextsize(newLabel);
 
-            // 🔹 2) 로컬 반영
             const raw = await AsyncStorage.getItem(USER_INFO_KEY);
             const info = raw ? JSON.parse(raw) : {};
             const newInfo = {
@@ -135,7 +130,6 @@ export default function FontSettingScreen() {
     return (
         <SafeAreaView className="flex-1 bg-white">
             <View className="flex-1">
-                {/* 헤더 */}
                 <View className="flex-row items-center py-4 px-4 border-b border-gray-200">
                     <TouchableOpacity onPress={() => navigation.goBack()}>
                         <Text className="text-2xl">{'←'}</Text>
@@ -150,7 +144,6 @@ export default function FontSettingScreen() {
                             : `현재 설정: ${currentLabel} (${currentSize} pt)`}
                     </Text>
 
-                    {/* 미리보기 */}
                     <View className="rounded-xl overflow-hidden bg-gray-50 p-4 shadow-md">
                         <View className="rounded-xl overflow-hidden">
                             <View className="bg-white px-4 py-4">
@@ -173,7 +166,6 @@ export default function FontSettingScreen() {
                         </View>
                     </View>
 
-                    {/* 조절바 */}
                     <View className="mt-12 mb-8 px-2">
                         <View className="relative w-full h-4 items-center justify-center">
                             <View

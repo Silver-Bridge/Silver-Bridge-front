@@ -16,19 +16,16 @@ import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 
-// 🔹 보호자-노인 연결 정보 + 감정 요약 API
 import {
     getElderInfoApi,
-    getEmotionSummaryCurrentMonth,   // ✅ 감정 월별 요약 API
+    getEmotionSummaryCurrentMonth,
 } from '../../shared/api/guardian';
 
-// 🔹 캘린더 API (userId 안 넘김, 인증 기반)
 import {
     getCalendarDatesApi,
     getSchedulesByDateApi,
 } from '../../shared/api/calendar';
 
-// ==== 캘린더 한글 설정 =======================================================
 LocaleConfig.locales.ko = {
     monthNames: [
         '1월', '2월', '3월', '4월', '5월', '6월',
@@ -53,7 +50,6 @@ const getTodayString = () => {
     return `${yyyy}-${mm}-${dd}`;
 };
 
-// ==== 기기 크기 비율 기반 레이아웃 상수 =====================================
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const CALENDAR_HEIGHT = SCREEN_HEIGHT * 0.55;
@@ -62,7 +58,6 @@ const DATE_FONT_SIZE = Math.max(15, Math.round(SCREEN_WIDTH * 0.04));
 const CELL_MIN_HEIGHT = EMOJI_SIZE + DATE_FONT_SIZE * 3 + 24;
 const CELL_VERTICAL_PADDING = EMOJI_SIZE * 0.6;
 
-// 🔹 감정 이모티콘 PNG 매핑
 const getEmotionImage = (emotion) => {
     const code = (emotion || '').toString().toUpperCase();
 
@@ -87,23 +82,17 @@ const getEmotionImage = (emotion) => {
     return require('../../../assets/emotion_6_neutral.png');
 };
 
-// 🔹 ★★ 데모용 감정 목데이터 설정 (일정은 X) ★★ ===========================
 
-// 👉 감정 목데이터 사용 여부
 const USE_MOCK_EMOTION = true;
 
-// 👉 목데이터를 적용할 연도
 const MOCK_YEAR = 2025;
 
-// 👉 12월 1,2,3일 감정 목데이터
-// key: 'YYYY-MM-DD', value: 감정코드(0~6 또는 HAPPY 등)
 const MOCK_DECEMBER_EMOTIONS = {
     [`${MOCK_YEAR}-12-01`]: '0', // 긍정
     [`${MOCK_YEAR}-12-02`]: '3', // 불안
     [`${MOCK_YEAR}-12-03`]: '1', // 슬픔
 };
 
-// 🔹 백엔드 일정 → 화면용
 const mapSchedules = (list) => {
     if (!Array.isArray(list)) return [];
 
@@ -141,21 +130,19 @@ const mapSchedules = (list) => {
 const GuardianCalendarScreen = () => {
     const navigation = useNavigation();
 
-    const [elderName, setElderName] = useState('');   // 🔹 어르신 이름 상태
+    const [elderName, setElderName] = useState('');
     const [selectedDate, setSelectedDate] = useState(getTodayString());
-    const [monthMarks, setMonthMarks] = useState({}); // 일정 있는 날짜
-    const [emotionByDate, setEmotionByDate] = useState({}); // 🔹 날짜별 감정 코드
+    const [monthMarks, setMonthMarks] = useState({});
+    const [emotionByDate, setEmotionByDate] = useState({});
     const [scheduleList, setScheduleList] = useState([]);
     const [loadingMonth, setLoadingMonth] = useState(false);
     const [loadingSchedules, setLoadingSchedules] = useState(false);
     const [loadingEmotion, setLoadingEmotion] = useState(false);
 
-    // 🔹 보호자 계정에 연결된 노인 정보 로딩
     useEffect(() => {
         (async () => {
             try {
                 const info = await getElderInfoApi();
-                // { elderId, elderName, elderPhone }
                 setElderName(info?.elderName || '');
             } catch (e) {
                 console.log('[GuardianCalendar] elder-info error', e?.message || e);
@@ -164,24 +151,20 @@ const GuardianCalendarScreen = () => {
         })();
     }, []);
 
-    // 🔹 해당 월의 감정 요약 불러오기 (백엔드 응답 유연하게 처리)
     const loadEmotionForMonth = useCallback(async (year, month) => {
         try {
             setLoadingEmotion(true);
 
-            // 🔸 데모: 12월 + 감정 목데이터 사용 시, 백엔드 대신 목데이터 사용
             if (USE_MOCK_EMOTION && year === MOCK_YEAR && month === 12) {
                 setEmotionByDate(MOCK_DECEMBER_EMOTIONS);
                 return;
             }
 
-            // 🔹 그 외에는 기존 백엔드 호출
             const list = await getEmotionSummaryCurrentMonth();
 
             const map = {};
             if (Array.isArray(list)) {
                 list.forEach((item) => {
-                    // 백엔드 응답에서 날짜/감정 필드 유연하게 뽑기
                     const dateStr =
                         item.date ||
                         item.targetDate ||
@@ -204,13 +187,11 @@ const GuardianCalendarScreen = () => {
             setEmotionByDate(map);
         } catch (e) {
             console.log('[GuardianCalendar] loadEmotionForMonth error', e);
-            // 감정 데이터는 없어도 치명적이진 않으니 Alert는 생략
         } finally {
             setLoadingEmotion(false);
         }
     }, []);
 
-    // 월별 일정 날짜
     const loadMonth = useCallback(
         async (year, month) => {
             try {
@@ -223,7 +204,6 @@ const GuardianCalendarScreen = () => {
 
                 setMonthMarks(marks);
 
-                // 🔹 같은 타이밍에 감정 요약도 로딩
                 await loadEmotionForMonth(year, month);
             } catch (e) {
                 console.log('[GuardianCalendar] loadMonth error', e);
@@ -240,12 +220,10 @@ const GuardianCalendarScreen = () => {
         [loadEmotionForMonth],
     );
 
-    // 날짜별 일정
     const loadSchedules = useCallback(async (date) => {
         try {
             setLoadingSchedules(true);
 
-            // 🔹 일정은 항상 백엔드에서만 가져옴 (목데이터 X)
             const list = await getSchedulesByDateApi({ date });
             setScheduleList(mapSchedules(list));
         } catch (e) {
@@ -261,7 +239,6 @@ const GuardianCalendarScreen = () => {
         }
     }, []);
 
-    // 최초 로딩
     useEffect(() => {
         const today = getTodayString();
         setSelectedDate(today);
@@ -270,7 +247,6 @@ const GuardianCalendarScreen = () => {
         loadSchedules(today);
     }, [loadMonth, loadSchedules]);
 
-    // 화면 다시 포커스될 때(일정 추가 후 뒤로가기 등) 새로고침
     useFocusEffect(
         useCallback(() => {
             const [y, m] = selectedDate.split('-');
@@ -279,11 +255,9 @@ const GuardianCalendarScreen = () => {
         }, [selectedDate, loadMonth, loadSchedules]),
     );
 
-    // 🔹 일정(mark) + 감정(emotionByDate) merge
     const getMarkedDates = () => {
         const marked = {};
 
-        // 1) 일정이 있는 날짜 표시 (백엔드 기준)
         Object.keys(monthMarks).forEach((date) => {
             marked[date] = {
                 marked: true,
@@ -291,7 +265,6 @@ const GuardianCalendarScreen = () => {
             };
         });
 
-        // 2) 감정 데이터 합치기 (목데이터 + 백엔드)
         Object.keys(emotionByDate).forEach((date) => {
             if (!marked[date]) {
                 marked[date] = {};
@@ -299,7 +272,6 @@ const GuardianCalendarScreen = () => {
             marked[date].emotion = emotionByDate[date];
         });
 
-        // 3) 선택된 날짜 하이라이트
         marked[selectedDate] = {
             ...(marked[selectedDate] || {}),
             selected: true,
@@ -321,14 +293,12 @@ const GuardianCalendarScreen = () => {
         loadMonth(year, month);
     };
 
-    // 🔹 보호자 일정 추가 화면으로 이동
     const handleAddSchedule = () => {
         navigation.navigate('GuardianScheduleAdd', { date: selectedDate });
     };
 
     return (
         <SafeAreaView edges={['top']} className="flex-1 bg-[#F3F4F6]">
-            {/* 상단 헤더 */}
             <View className="px-5 pt-4 pb-3 flex-row justify-between items-center">
                 <Text className="text-2xl font-bold text-gray-900">
                     {elderName ? `${elderName}님 일정 관리` : '대상자 일정 관리'}
@@ -343,7 +313,6 @@ const GuardianCalendarScreen = () => {
                 contentContainerStyle={{ paddingBottom: 24 }}
                 showsVerticalScrollIndicator={false}
             >
-                {/* 캘린더 카드 */}
                 <View className="px-4 mt-2">
                     <View
                         className="bg-white rounded-3xl border border-gray-100 shadow-sm"
@@ -453,7 +422,6 @@ const GuardianCalendarScreen = () => {
                     </View>
                 </View>
 
-                {/* 선택된 날짜 일정 리스트 */}
                 <View className="mt-4 bg-white rounded-t-3xl px-5 pt-6 pb-2 shadow-lg">
                     <View className="flex-row justify-between items-end mb-4">
                         <Text className="text-lg font-bold text-gray-900">

@@ -21,11 +21,9 @@ import { Picker } from '@react-native-picker/picker';
 
 import { updateScheduleApi } from '../../shared/api/calendar';
 
-// 시/분 리스트 (00~23, 00/30)
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
 const MINUTES = ['00', '30'];
 
-// 24시간 → "오전/오후 HH:MM" 문자열
 const formatKoreanTime = (h, m) => {
     if (!h || !m) return '';
     const hourNum = parseInt(h, 10);
@@ -34,7 +32,6 @@ const formatKoreanTime = (h, m) => {
     return `${period} ${String(hour12).padStart(2, '0')}:${m}`;
 };
 
-// 날짜 + 시/분 → ISO8601
 const buildDateTime = (dateStr, h, m) => {
     if (!dateStr || !h || !m) return null;
     const timeStr = `${h}:${m}`;
@@ -54,7 +51,6 @@ export default function ScheduleEditScreen() {
             headerBackTitle: ' ',
         });
     }, [navigation]);
-    // state
     const [title, setTitle] = useState('');
     const [startDate, setStartDate] = useState(moment().format('YYYY-MM-DD'));
     const [endDate, setEndDate] = useState(moment().format('YYYY-MM-DD'));
@@ -72,7 +68,6 @@ export default function ScheduleEditScreen() {
 
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // 전달받은 schedule로 초기값 세팅
     useEffect(() => {
         if (!passedSchedule) return;
 
@@ -101,7 +96,6 @@ export default function ScheduleEditScreen() {
         setLocation(passedSchedule.location ?? '');
     }, [passedSchedule]);
 
-    /** 저장(수정) */
     const handleUpdate = async () => {
         if (isSubmitting) return;
 
@@ -149,10 +143,8 @@ export default function ScheduleEditScreen() {
                 location: location.trim(),
                 repeat_type: passedSchedule?.repeat_type ?? 'NONE',
                 priority: passedSchedule?.priority ?? 'MEDIUM',
-                // alarm_time 은 백엔드에서 처리
             };
 
-            // ✅ userId 제거, scheduleId + payload만 전달
             await updateScheduleApi({
                 scheduleId: passedScheduleId,
                 payload,
@@ -178,7 +170,6 @@ export default function ScheduleEditScreen() {
             >
                 <ScrollView className="flex-1" keyboardShouldPersistTaps="handled">
                     <View className="px-6 pt-6 pb-24">
-                        {/* 제목 */}
                         <Text className="mb-2 text-lg text-gray-700 font-semibold">
                             일정 제목 *
                         </Text>
@@ -190,7 +181,6 @@ export default function ScheduleEditScreen() {
                             onChangeText={setTitle}
                         />
 
-                        {/* 시작 날짜 */}
                         <View className="mt-7">
                             <Text className="mb-2 text-lg text-gray-700 font-semibold">
                                 시작 날짜 *
@@ -212,7 +202,6 @@ export default function ScheduleEditScreen() {
                             </TouchableOpacity>
                         </View>
 
-                        {/* 종료 날짜 */}
                         <View className="mt-5">
                             <Text className="mb-2 text-lg text-gray-700 font-semibold">
                                 종료 날짜 *
@@ -234,7 +223,6 @@ export default function ScheduleEditScreen() {
                             </TouchableOpacity>
                         </View>
 
-                        {/* 시작 시간 */}
                         <View className="mt-8">
                             <Text className="mb-2 text-lg text-gray-700 font-semibold">
                                 시작 시간 *
@@ -256,7 +244,6 @@ export default function ScheduleEditScreen() {
                             </TouchableOpacity>
                         </View>
 
-                        {/* 종료 시간 */}
                         <View className="mt-5">
                             <Text className="mb-2 text-lg text-gray-700 font-semibold">
                                 종료 시간 *
@@ -278,7 +265,6 @@ export default function ScheduleEditScreen() {
                             </TouchableOpacity>
                         </View>
 
-                        {/* 장소 */}
                         <View className="mt-8">
                             <Text className="mb-2 text-lg text-gray-700 font-semibold">
                                 장소 (선택)
@@ -292,7 +278,6 @@ export default function ScheduleEditScreen() {
                             />
                         </View>
 
-                        {/* 메모 */}
                         <View className="mt-6">
                             <Text className="mb-2 text-lg text-gray-700 font-semibold">
                                 메모 (선택)
@@ -310,7 +295,6 @@ export default function ScheduleEditScreen() {
                     </View>
                 </ScrollView>
 
-                {/* 날짜 선택 모달 */}
                 <Modal
                     visible={!!activeDatePicker}
                     transparent
@@ -352,7 +336,6 @@ export default function ScheduleEditScreen() {
                     </TouchableOpacity>
                 </Modal>
 
-                {/* 시간 선택 모달 */}
                 <Modal
                     visible={!!activeTimePicker}
                     transparent
@@ -373,7 +356,6 @@ export default function ScheduleEditScreen() {
                                 </Text>
 
                                 <View className="flex-row bg-gray-50 rounded-xl px-3 py-2">
-                                    {/* 시 */}
                                     <View className="flex-1 items-center">
                                         <Text className="text-xs text-gray-500 mb-1">시</Text>
                                         <Picker
@@ -401,7 +383,6 @@ export default function ScheduleEditScreen() {
                                         </Picker>
                                     </View>
 
-                                    {/* 분 */}
                                     <View className="flex-1 items-center">
                                         <Text className="text-xs text-gray-500 mb-1">분</Text>
                                         <Picker
@@ -443,7 +424,6 @@ export default function ScheduleEditScreen() {
                     </TouchableOpacity>
                 </Modal>
 
-                {/* 하단 저장 버튼 */}
                 <View className="p-4 border-t border-gray-200">
                     <TouchableOpacity
                         className={`rounded-2xl py-4 items-center ${

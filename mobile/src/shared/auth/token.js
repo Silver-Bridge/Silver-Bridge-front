@@ -4,7 +4,6 @@ const KEY_ACCESS = 'ACCESS_TOKEN';
 const KEY_REFRESH = 'REFRESH_TOKEN';
 const KEY_USER   = 'USER_INFO';
 
-// 문자열 "null"/"undefined"까지 방지
 const BAD = new Set([null, undefined, '', 'null', 'undefined']);
 
 export async function setAuth({ accessToken, refreshToken, user }) {
@@ -40,7 +39,6 @@ export async function setUser(user) {
     await AsyncStorage.setItem(KEY_USER, JSON.stringify(user));
 }
 
-// --- 유틸 ---
 
 export function parseJwt(token) {
     try {
@@ -56,7 +54,7 @@ export function parseJwt(token) {
 export function normalizeUser(u) {
     if (!u) return null;
     return {
-        id: u.id ?? u.userId ?? u.uid ?? u.sub,   // ★ 어떤 키여도 id로 통일
+        id: u.id ?? u.userId ?? u.uid ?? u.sub,
         name: u.name ?? u.username ?? '',
         phoneNumber: u.phoneNumber ?? u.phone ?? '',
         ...u,
@@ -68,7 +66,6 @@ export async function getUserId() {
     return u?.id ?? u?.userId ?? u?.uid ?? u?.sub ?? null;
 }
 
-// USER_INFO에 id가 없으면 access 토큰의 클레임으로 복구
 export async function ensureUserFromToken() {
     const raw = await AsyncStorage.getItem(KEY_USER);
     let user = raw ? JSON.parse(raw) : null;

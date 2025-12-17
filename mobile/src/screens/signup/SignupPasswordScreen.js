@@ -12,26 +12,20 @@ export default function SignupPasswordScreen({ navigation }) {
 
     const password = data.password || '';
 
-    // 길이 조건: 8자 이상 20자 이하
     const lengthValid = password.length >= 8 && password.length <= 20;
 
-    // 비밀번호 일치 여부
     const match = password.length > 0 && password === pw2;
 
-    // 다음 버튼 활성화 조건
     const canNext = lengthValid && match;
 
-    // 비밀번호 변경 핸들러
     const handleChangePassword = (t) => {
         setData((s) => ({ ...s, password: t }));
 
-        // 한 번이라도 8자 이상 되면 플래그 ON
         if (t.length >= 8 && !hasReachedMinOnce) {
             setHasReachedMinOnce(true);
         }
     };
 
-    // 길이 안내 메시지: 입력 중(1~7자) + 아직 8자 이상을 한 번도 넘긴 적 없을 때만
     const showLengthHint =
         !hasReachedMinOnce && password.length > 0 && password.length < 8;
 

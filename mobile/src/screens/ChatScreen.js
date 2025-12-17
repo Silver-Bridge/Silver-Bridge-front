@@ -34,10 +34,7 @@ import { useChatFontSize } from '../shared/utils/useChatFont';
 
 const SUGGESTIONS = ['날씨정보', '일정확인 및 등록', '복지'];
 
-/**
- * 🔹 USER_INFO.region 같은 한글 지역명을
- *    백엔드에서 쓰는 regionCode("gs" | "gw" | "std")로 변환
- */
+
 function regionLabelToCode(regionLabel) {
     if (!regionLabel) return 'std';
 
@@ -50,12 +47,8 @@ function regionLabelToCode(regionLabel) {
     if (t === '강원도') {
         return 'gw';
     }
-
-    // "서울" 또는 그 외 값은 전부 표준어
     return 'std';
 }
-
-// 추천 칩 텍스트 확장 (사용자에게 보여줄 문장)
 function expandSuggestion(label, regionLabel) {
     const regionPart = regionLabel ? `${regionLabel} ` : '';
 
@@ -73,7 +66,6 @@ function expandSuggestion(label, regionLabel) {
     }
 }
 
-/** 🔹 위쪽 로고 + 인사말 + 추천 칩 영역 */
 function ChatHeader({ name, chatFontSize, onChipPress }) {
     const displayName = name ? `${name}님` : '고객님';
 
@@ -91,7 +83,6 @@ function ChatHeader({ name, chatFontSize, onChipPress }) {
                 />
             </View>
 
-            {/* 인사말 */}
             <Text
                 className="font-semibold text-gray-900 text-center"
                 style={{ fontSize: chatFontSize + 2 }}
@@ -105,7 +96,6 @@ function ChatHeader({ name, chatFontSize, onChipPress }) {
                 궁금한 내용을 편하게 말씀해 주세요.
             </Text>
 
-            {/* 추천 칩 */}
             <View className="mt-4 flex-row flex-wrap justify-center -mr-2">
                 {SUGGESTIONS.map((s) => (
                     <TouchableOpacity
@@ -133,24 +123,21 @@ export default function ChatScreen() {
     const insets = useSafeAreaInsets();
     const headerHeight = useHeaderHeight(); // 🔹 헤더 높이
 
-    // 🔹 회원이 설정한 글자 크기 (기본 16)
     const { chatFontSize } = useChatFontSize(16);
 
     const initialSessionId =
         route.params?.sessionId ?? route.params?.serverSessionId ?? null;
 
-    // route로 넘어온 regionCode (예: 'std' …) – fallback 용
     const routeRegionCode = route.params?.regionCode || 'std';
 
     const [sessionId, setSessionId] = useState(initialSessionId);
     const [input, setInput] = useState('');
-    const [messages, setMessages] = useState([]); // 오래된 → 최신 순
+    const [messages, setMessages] = useState([]);
     const [sending, setSending] = useState(false);
     const [recording, setRecording] = useState(null);
     const [isRecording, setIsRecording] = useState(false);
     const [name, setName] = useState('');
 
-    // ✅ USER_INFO.region → 여기 저장 ("서울", "경상도" 등)
     const [userRegionLabel, setUserRegionLabel] = useState('');
 
     const inputRef = useRef(null);
@@ -171,7 +158,6 @@ export default function ChatScreen() {
         }
     }, []);
 
-    // 🔹 USER_INFO에서 이름 + 지역 가져오기
     useEffect(() => {
         (async () => {
             try {
@@ -179,7 +165,6 @@ export default function ChatScreen() {
                 const u = raw ? JSON.parse(raw) : null;
 
                 setName(u?.name || '');
-                // 예: "경상도", "서울"
                 setUserRegionLabel(u?.region || '');
             } catch (e) {
                 console.warn('USER_INFO load error:', e?.message ?? String(e));
@@ -187,11 +172,8 @@ export default function ChatScreen() {
         })();
     }, []);
 
-    // ✅ 실제로 백엔드에 보낼 regionCode 값 (dialect code)
-    //    USER_INFO.region → "gs" | "gw" | "std"
     const effectiveRegionCode = useMemo(() => {
         const fromUser = regionLabelToCode(userRegionLabel);
-        // 혹시 모를 경우 routeRegionCode도 fallback
         return fromUser || routeRegionCode || 'std';
     }, [userRegionLabel, routeRegionCode]);
 
@@ -231,7 +213,6 @@ export default function ChatScreen() {
         });
     }, [navigation]);
 
-    // 서버 history → 화면용 메시지 배열 (오래된 → 최신)
     const mapHistoryToMessages = useCallback((history, sid) => {
         if (!Array.isArray(history)) return [];
         return history.map((m, idx) => {
@@ -246,7 +227,6 @@ export default function ChatScreen() {
         });
     }, []);
 
-    // 기존 세션 진입 시 히스토리 로드
     useEffect(() => {
         if (!initialSessionId) return;
         (async () => {
@@ -260,7 +240,6 @@ export default function ChatScreen() {
         })();
     }, [initialSessionId, mapHistoryToMessages]);
 
-    // 포커스 될 때마다 현재 sessionId 기준으로 히스토리 새로고침
     useFocusEffect(
         useCallback(() => {
             if (!sessionId) return;
@@ -287,7 +266,6 @@ export default function ChatScreen() {
         }, [sessionId, mapHistoryToMessages]),
     );
 
-    // 홈에서 preset 넘어오면 자동 입력
     useEffect(() => {
         const preset = route.params?.preset;
         if (typeof preset === 'string') {
@@ -296,7 +274,6 @@ export default function ChatScreen() {
         }
     }, [route.params?.preset]);
 
-    // ✅ 일반 리스트이므로 scrollToEnd 사용
     const scrollToEnd = useCallback(() => {
         requestAnimationFrame(() => {
             listRef.current?.scrollToEnd({ animated: true });
@@ -308,7 +285,6 @@ export default function ChatScreen() {
         [sending, input],
     );
 
-    // route에서 sessionId 변경 시 히스토리 다시 로드
     useEffect(() => {
         const fromRoute = route.params?.sessionId ?? null;
         if (!fromRoute) return;
@@ -343,7 +319,6 @@ export default function ChatScreen() {
             setSending(true);
             Keyboard.dismiss();
 
-            // 1) 내 메시지 먼저 화면에 반영
             const tempId = `tmp-${nowMs}`;
             const tempMessage = {
                 id: tempId,
@@ -356,21 +331,19 @@ export default function ChatScreen() {
             scrollToEnd();
 
             try {
-                // 🔹 요청 로그
+
                 console.log('[CHAT REQ]', {
                     text: content,
                     sessionId,
                     regionCode: effectiveRegionCode,
                 });
 
-                // 2) 서버 전송
                 const res = await sendText({
                     text: content,
                     sessionId,
-                    regionCode: effectiveRegionCode, // ✅ 여기서 "gs"/"gw"/"std" 전송
+                    regionCode: effectiveRegionCode,
                 });
 
-                // 🔹 응답 전체 로그
                 console.log('[CHAT RES]', res);
                 if (res.replyText) {
                     console.log('[CHAT REPLY TEXT]', res.replyText);
@@ -384,7 +357,6 @@ export default function ChatScreen() {
                     setSessionId(newSessionId);
                 }
 
-                // 3) 서버 history 기준으로 다시 세팅
                 if (Array.isArray(res.history)) {
                     const mapped = mapHistoryToMessages(res.history, newSessionId);
                     setMessages(mapped);
@@ -448,7 +420,6 @@ export default function ChatScreen() {
                         isMe ? 'justify-end' : 'justify-start'
                     } items-end`}
                 >
-                    {/* 봇 메시지면 왼쪽에 아이콘 */}
                     {!isMe && (
                         <View className="mr-2">
                             <Image
@@ -523,7 +494,6 @@ export default function ChatScreen() {
 
     const handleChipPress = useCallback(
         (label) => {
-            // 칩 문장에는 한글 지역명 사용 (ex. "경상도 오늘 날씨 알려줘")
             const sentence = expandSuggestion(label, userRegionLabel);
             setInput(sentence);
             requestAnimationFrame(() => onSend(sentence));
@@ -565,7 +535,6 @@ export default function ChatScreen() {
                     />
                 </View>
 
-                {/* 입력 바 */}
                 <View
                     style={{
                         paddingBottom: Math.max(insets.bottom - 25, 6),
@@ -582,7 +551,6 @@ export default function ChatScreen() {
                             shadow-sm
                         "
                     >
-                        {/* 🎤 마이크 버튼 */}
                         <TouchableOpacity
                             className="w-10 h-10 mr-1 items-center justify-center"
                             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}

@@ -22,7 +22,6 @@ const Icon = ({ name, focused }) => {
         switch (name) {
             case 'Home':
                 return '🏠';
-            // 🚨 Calendar 아이콘 제거됨
             case 'Chat':
                 return '💬';
             case 'MyPage':
@@ -36,7 +35,6 @@ const Icon = ({ name, focused }) => {
         switch (name) {
             case 'Home':
                 return '홈';
-            // 🚨 Calendar 라벨 제거됨
             case 'Chat':
                 return '챗봇';
             case 'MyPage':

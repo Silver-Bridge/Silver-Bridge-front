@@ -12,11 +12,10 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import { useRoute } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // ✅ 지역 정보용
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { sendVoice } from '../shared/api/chatbot';
 import { useChatFontSize } from '../shared/utils/useChatFont';
 
-// ✅ DB에 "경상도" / "강원도" / "서울" 이렇게 저장된다고 가정
 function regionLabelToCode(regionLabel) {
     if (!regionLabel) return 'std';
 
@@ -25,7 +24,6 @@ function regionLabelToCode(regionLabel) {
     if (t === '경상도') return 'gs';
     if (t === '강원도') return 'gw';
 
-    // "서울" 또는 기타 값은 표준어
     return 'std';
 }
 
@@ -33,30 +31,24 @@ export default function VoiceChatScreen() {
     const insets = useSafeAreaInsets();
     const route = useRoute();
 
-    // 🔹 사용자 설정 폰트 (기본 16)
     const { chatFontSize } = useChatFontSize(16);
 
-    // ChatScreen 에서 넘어온 기존 sessionId (있을 수도, 없을 수도 있음)
     const initialSessionId = route.params?.sessionId ?? null;
-    // ChatScreen 에서 regionCode를 넘겨준 경우 (gs/gw/std)
     const paramRegionCode = route.params?.regionCode ?? null;
 
     const [isRecording, setIsRecording] = useState(false);
     const [recording, setRecording] = useState(null);
-    const [lastReply, setLastReply] = useState(null); // 최근 답변 텍스트
+    const [lastReply, setLastReply] = useState(null);
     const [sending, setSending] = useState(false);
-    const [voiceSessionId, setVoiceSessionId] = useState(initialSessionId); // 음성 세션 유지
-    const [sound, setSound] = useState(null); // 재생 중인 사운드 객체
-    const [isPlaying, setIsPlaying] = useState(false); // ✅ 지금 음성이 재생 중인지
+    const [voiceSessionId, setVoiceSessionId] = useState(initialSessionId);
+    const [sound, setSound] = useState(null);
+    const [isPlaying, setIsPlaying] = useState(false);
 
-    // ✅ 지역 관련 상태
-    const [regionCode, setRegionCode] = useState(paramRegionCode || 'std'); // 실제 서버에 보낼 코드(gs/gw/std)
-    const [userRegionLabel, setUserRegionLabel] = useState(''); // USER_INFO.region (서울/경상도/강원도)
+    const [regionCode, setRegionCode] = useState(paramRegionCode || 'std');
+    const [userRegionLabel, setUserRegionLabel] = useState('');
 
-    // ⭐ 동그라미 애니메이션 값
     const pulse = useRef(new Animated.Value(0)).current;
 
-    // 🔹 USER_INFO에서 지역 정보 불러오기
     useEffect(() => {
         (async () => {
             try {
@@ -66,7 +58,6 @@ export default function VoiceChatScreen() {
                 const label = u?.region || '';
                 setUserRegionLabel(label);
 
-                // ChatScreen에서 regionCode 안 넘겨줬을 때만 USER_INFO 기반으로 설정
                 if (!paramRegionCode && label) {
                     setRegionCode(regionLabelToCode(label));
                 }
@@ -79,17 +70,15 @@ export default function VoiceChatScreen() {
         })();
     }, [paramRegionCode]);
 
-    // 컴포넌트 언마운트 시, 사운드 정리
     useEffect(() => {
         return () => {
             if (sound) {
                 sound.unloadAsync().catch(() => {});
             }
-            setIsPlaying(false); // ✅ 화면 나갈 때 재생 상태 초기화
+            setIsPlaying(false);
         };
     }, [sound]);
 
-    // 녹음 ON/OFF에 따라 애니메이션 시작/정지
     useEffect(() => {
         if (isRecording) {
             const looping = Animated.loop(
@@ -141,12 +130,10 @@ export default function VoiceChatScreen() {
                     { uri: url },
                     { shouldPlay: true },
                     (status) => {
-                        // ✅ 재생 상태 콜백
                         if (status.isLoaded) {
                             if (status.isPlaying) {
                                 setIsPlaying(true);
                             } else if (status.didJustFinish) {
-                                // 끝까지 재생 끝난 경우
                                 setIsPlaying(false);
                                 newSound.unloadAsync().catch(() => {});
                                 setSound(null);
@@ -181,7 +168,7 @@ export default function VoiceChatScreen() {
         setIsPlaying(false);
     }, [sound]);
 
-    // 🎤 녹음 시작
+    //  녹음 시작
     const startRecording = useCallback(async () => {
         try {
             const perm = await Audio.requestPermissionsAsync();
@@ -207,7 +194,7 @@ export default function VoiceChatScreen() {
         }
     }, []);
 
-    // 🎤 녹음 종료 + 서버 전송
+    // 녹음 종료 + 서버 전송
     const stopRecording = useCallback(async () => {
         try {
             if (!recording) return;
@@ -224,12 +211,11 @@ export default function VoiceChatScreen() {
                 return;
             }
 
-            // ✅ 여기서 지역 코드 + 지역 라벨 같이 전송
             const res = await sendVoice({
                 uri,
-                regionCode,           // "gs" / "gw" / "std"
+                regionCode,
                 sessionId: voiceSessionId,
-                region: userRegionLabel, // "서울"/"경상도"/"강원도" (백엔드에서 필요하면 사용)
+                region: userRegionLabel,
             });
             console.log('[VOICE RES in voice screen]', res);
 
@@ -274,7 +260,6 @@ export default function VoiceChatScreen() {
         else startRecording();
     }, [isRecording, startRecording, stopRecording, sending]);
 
-    // 🔹 상태 안내 문구 (조금 더 큰 글씨용)
     const statusLabel = isRecording
         ? '지금 말씀하시는 중이에요.'
         : sending
@@ -290,9 +275,7 @@ export default function VoiceChatScreen() {
                 }}
                 className="flex-1 px-6"
             >
-                {/* 상단 안내 영역 */}
                 <View className="w-full">
-                    {/* 로고 + 타이틀 */}
                     <View className="flex-row items-center mb-4">
                         <View
                             style={{ width: 44, height: 44 }}
@@ -307,21 +290,20 @@ export default function VoiceChatScreen() {
                         <View className="flex-1">
                             <Text
                                 className="text-gray-900 font-semibold"
-                                style={{ fontSize: 22 }} // (20 → 22)
+                                style={{ fontSize: 22 }}
                                 numberOfLines={1}
                             >
                                 실비에게 말 걸기
                             </Text>
                             <Text
                                 className="text-gray-500 mt-1"
-                                style={{ fontSize: 15 }} // (14 → 15)
+                                style={{ fontSize: 15 }}
                             >
                                 버튼을 눌러 말씀하시고, 다시 눌러 전송해 주세요.
                             </Text>
                         </View>
                     </View>
 
-                    {/* 상태 안내 배지 */}
                     <View className="flex-row items-center self-start px-3 py-2 rounded-full bg-white border border-gray-200 shadow-sm">
                         <MaterialCommunityIcons
                             name={isRecording ? 'record-rec' : 'information-outline'}
@@ -337,9 +319,7 @@ export default function VoiceChatScreen() {
                     </View>
                 </View>
 
-                {/* 가운데 마이크 원형 영역 */}
                 <View className="items-center justify-center flex-1">
-                    {/* 퍼지는 바깥 원 */}
                     <Animated.View
                         style={{
                             position: 'absolute',
@@ -351,7 +331,6 @@ export default function VoiceChatScreen() {
                             transform: [{ scale: outerScale }],
                         }}
                     />
-                    {/* 안쪽 실제 버튼 */}
                     <TouchableOpacity onPress={toggleRecording} activeOpacity={0.9}>
                         <View className="w-[170px] h-[170px] rounded-full bg-[#0f766e] items-center justify-center shadow-lg">
                             <MaterialCommunityIcons
@@ -363,13 +342,11 @@ export default function VoiceChatScreen() {
                     </TouchableOpacity>
                 </View>
 
-                {/* 하단: 마지막 답변 카드 (어르신용, 크게) */}
                 <View
                     className="w-full bg-white rounded-3xl px-5 py-5 shadow-md border border-gray-100"
                     style={{ minHeight: 130, maxHeight: 320 }}
                 >
                     <View className="flex-row items-center justify-between mb-3">
-                        {/* 왼쪽: 로고 + 텍스트 */}
                         <View className="flex-row items-center">
                             <Image
                                 source={require('../../assets/logo.png')}
@@ -384,7 +361,6 @@ export default function VoiceChatScreen() {
                             </Text>
                         </View>
 
-                        {/* 오른쪽: 재생 중일 때만 보이는 "음성 멈추기" 버튼 */}
                         {isPlaying && (
                             <TouchableOpacity
                                 onPress={stopAudio}
@@ -404,7 +380,6 @@ export default function VoiceChatScreen() {
                     </View>
 
                     {sending ? (
-                        // 🔹 응답 기다리는 중
                         <View className="flex-row items-center">
                             <Image
                                 source={require('../../assets/silvy_loading.gif')}

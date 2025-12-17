@@ -28,7 +28,6 @@ const HOURS = Array.from({ length: 24 }, (_, i) =>
 );
 const MINUTES = ['00', '30'];
 
-// 🔔 알림 옵션 (value = 시작 시간 기준 몇 분 전인지)
 const ALARM_OPTIONS = [
     { label: '알림 없음', value: null },
     { label: '정시 알림 (시작 시간)', value: 0 },
@@ -48,9 +47,6 @@ const formatKoreanTime = (h, m) => {
     return `${period} ${String(hour12).padStart(2, '0')}:${m}`;
 };
 
-/**
- * 캘린더 일정 추가 화면
- */
 export default function ScheduleAddScreen() {
     const navigation = useNavigation();
     const route = useRoute();
@@ -58,7 +54,6 @@ export default function ScheduleAddScreen() {
     // CalendarScreen에서 넘어온 날짜 (YYYY-MM-DD)
     const initialDate = route.params?.date ?? moment().format('YYYY-MM-DD');
 
-    // 🔹 iOS에서 "< CalendarMain" 글자 완전히 없애기
     useLayoutEffect(() => {
         navigation.setOptions({
             headerBackTitleVisible: false,
@@ -71,7 +66,6 @@ export default function ScheduleAddScreen() {
     const [startDate, setStartDate] = useState(initialDate);
     const [endDate, setEndDate] = useState(initialDate);
 
-    // 기본 시간: 16:30 ~ 17:30
     const [startHour, setStartHour] = useState('16');
     const [startMinute, setStartMinute] = useState('30');
     const [endHour, setEndHour] = useState('17');
@@ -80,7 +74,7 @@ export default function ScheduleAddScreen() {
     const [memo, setMemo] = useState('');
     const [location, setLocation] = useState('');
 
-    // 🔔 알림: 기본값 10분 전 (원하면 null로 바꿔도 됨)
+
     const [alarmMinutes, setAlarmMinutes] = useState(10);
     const [alarmModalVisible, setAlarmModalVisible] = useState(false);
 
@@ -90,20 +84,20 @@ export default function ScheduleAddScreen() {
 
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // date + hour + minute → ISO8601
+
     const buildDateTime = (dateStr, h, m) => {
         if (!dateStr || !h || !m) return null;
         const timeStr = `${h}:${m}`;
         return moment(`${dateStr} ${timeStr}`, 'YYYY-MM-DD HH:mm').format();
     };
 
-    // 현재 선택된 알림 옵션 라벨
+
     const currentAlarmLabel = (() => {
         const found = ALARM_OPTIONS.find((opt) => opt.value === alarmMinutes);
         return found ? found.label : '알림 없음';
     })();
 
-    /** 저장하기 */
+
     const handleAddSchedule = async () => {
         if (isSubmitting) return;
 
@@ -139,7 +133,7 @@ export default function ScheduleAddScreen() {
                 return;
             }
 
-            // alarm_time은 백엔드에서 설정
+
             const payload = {
                 title: title.trim(),
                 description: memo.trim(),
@@ -151,9 +145,9 @@ export default function ScheduleAddScreen() {
                 priority: 'MEDIUM',
             };
 
-            // 🔔 알림 설정: 선택된 경우에만 alarm_minutes 보내기
+
             if (alarmMinutes !== null && alarmMinutes !== undefined) {
-                payload.alarm_minutes = alarmMinutes; // ✅ DTO의 @JsonProperty("alarm_minutes") 와 매칭
+                payload.alarm_minutes = alarmMinutes;
             }
             console.log('[ADD SCHEDULE REQUEST BODY]', payload);
             const res = await createScheduleApi({ payload });
@@ -186,12 +180,11 @@ export default function ScheduleAddScreen() {
                         paddingHorizontal: 24,
                         paddingTop: 16,
                         paddingBottom: 32,
-                        alignItems: 'center', // 가운데 정렬
+                        alignItems: 'center',
                     }}
                 >
-                    {/* 🔹 기종이 커져도 최대 폭 고정: 480px */}
+
                     <View style={{ width: '100%', maxWidth: 480 }}>
-                        {/* 제목 */}
                         <Text className="mb-2 text-lg text-gray-700 font-semibold">
                             일정 제목 *
                         </Text>
@@ -210,7 +203,6 @@ export default function ScheduleAddScreen() {
                             }}
                         />
 
-                        {/* 시작 날짜 */}
                         <View className="mt-7">
                             <Text className="mb-2 text-lg text-gray-700 font-semibold">
                                 시작 날짜 *
@@ -236,7 +228,6 @@ export default function ScheduleAddScreen() {
                             </TouchableOpacity>
                         </View>
 
-                        {/* 종료 날짜 */}
                         <View className="mt-6">
                             <Text className="mb-2 text-lg text-gray-700 font-semibold">
                                 종료 날짜 *
@@ -262,7 +253,6 @@ export default function ScheduleAddScreen() {
                             </TouchableOpacity>
                         </View>
 
-                        {/* 시작 시간 */}
                         <View className="mt-8">
                             <Text className="mb-2 text-lg text-gray-700 font-semibold">
                                 시작 시간 *
@@ -288,7 +278,6 @@ export default function ScheduleAddScreen() {
                             </TouchableOpacity>
                         </View>
 
-                        {/* 종료 시간 */}
                         <View className="mt-6">
                             <Text className="mb-2 text-lg text-gray-700 font-semibold">
                                 종료 시간 *
@@ -314,7 +303,6 @@ export default function ScheduleAddScreen() {
                             </TouchableOpacity>
                         </View>
 
-                        {/* 🔔 알림 시간 선택 */}
                         <View className="mt-8">
                             <Text className="mb-2 text-lg text-gray-700 font-semibold">
                                 알림 시간 (선택)
@@ -334,7 +322,6 @@ export default function ScheduleAddScreen() {
                             </TouchableOpacity>
                         </View>
 
-                        {/* 장소 */}
                         <View className="mt-8">
                             <Text className="mb-2 text-lg text-gray-700 font-semibold">
                                 장소 (선택)
@@ -355,7 +342,6 @@ export default function ScheduleAddScreen() {
                             />
                         </View>
 
-                        {/* 메모 */}
                         <View className="mt-6 mb-6">
                             <Text className="mb-2 text-lg text-gray-700 font-semibold">
                                 메모 (선택)
@@ -379,7 +365,6 @@ export default function ScheduleAddScreen() {
                     </View>
                 </ScrollView>
 
-                {/* 날짜 선택 모달: 달력 */}
                 <Modal
                     visible={!!activeDatePicker}
                     transparent
@@ -431,7 +416,7 @@ export default function ScheduleAddScreen() {
                     </TouchableOpacity>
                 </Modal>
 
-                {/* 시간 선택 모달: 네이티브 Picker 휠 */}
+
                 <Modal
                     visible={!!activeTimePicker}
                     transparent
@@ -493,7 +478,6 @@ export default function ScheduleAddScreen() {
                                         </Picker>
                                     </View>
 
-                                    {/* 분 Picker */}
                                     <View className="flex-1 items-center">
                                         <Text className="text-xs text-gray-500 mb-1">분</Text>
                                         <Picker
@@ -541,7 +525,6 @@ export default function ScheduleAddScreen() {
                     </TouchableOpacity>
                 </Modal>
 
-                {/* 🔔 알림 선택 모달 */}
                 <Modal
                     visible={alarmModalVisible}
                     transparent
@@ -599,7 +582,6 @@ export default function ScheduleAddScreen() {
                     </TouchableOpacity>
                 </Modal>
 
-                {/* 하단 저장 버튼 */}
                 <View className="p-4 border-t border-gray-200">
                     <TouchableOpacity
                         className={`rounded-2xl py-4 items-center ${

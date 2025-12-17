@@ -16,7 +16,6 @@ export async function runAppHealthCheck() {
 
         if (!uid) throw new Error('USER_ID 없음 (로그인/저장 로직 확인)');
 
-        // 캘린더/제안 실제 호출
         const sch = await getTodayScheduleApi();
         console.log('[HC] TodaySchedule items =', sch);
 

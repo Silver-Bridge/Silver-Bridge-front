@@ -13,10 +13,8 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import moment from 'moment';
 
-// ✅ 캘린더 API 모듈에서 검색 함수 import (예시)
 import { searchSchedulesApi } from '../../shared/api/calendar';
 
-// 검색 결과 아이템 (DTO 스펙에 맞게)
 const SearchResultItem = ({ item }) => (
     <View className="py-3 border-b border-gray-100">
         <Text className="text-xs text-gray-500">
@@ -38,7 +36,6 @@ export default function ScheduleSearchScreen() {
     const [loading, setLoading] = useState(false);
     const [searched, setSearched] = useState(false);
 
-    // 🔍 검색어 변경 시 500ms 후 자동 검색 (디바운스)
     useEffect(() => {
         if (searchQuery.trim().length < 1) {
             setResults([]);
@@ -54,13 +51,11 @@ export default function ScheduleSearchScreen() {
         return () => clearTimeout(handler);
     }, [searchQuery]);
 
-    // 실제 검색 함수
     const performSearch = async (query) => {
         setLoading(true);
         setSearched(true);
 
         try {
-            // ✅ userId 없이 query만 전달하는 버전
             const data = await searchSchedulesApi({ query });
 
             setResults(Array.isArray(data) ? data : []);
@@ -74,13 +69,11 @@ export default function ScheduleSearchScreen() {
 
     return (
         <SafeAreaView className="flex-1 bg-white">
-            {/* Header (검색창) */}
             <View className="flex-row items-center p-4 border-b border-gray-200">
                 <TouchableOpacity onPress={() => navigation.goBack()} className="mr-3">
                     <Text className="text-2xl">{'←'}</Text>
                 </TouchableOpacity>
 
-                {/* 검색 입력 필드 */}
                 <View className="flex-1 flex-row items-center border border-gray-300 rounded-lg px-3 py-1 bg-gray-50">
                     <Text className="mr-2 text-xl text-gray-500">🔍</Text>
                     <TextInput
@@ -94,7 +87,6 @@ export default function ScheduleSearchScreen() {
                 </View>
             </View>
 
-            {/* 검색 결과 영역 */}
             <View className="p-4 flex-1">
                 {loading ? (
                     <ActivityIndicator className="mt-10" />

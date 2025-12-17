@@ -28,7 +28,6 @@ export default function AuthGate({ children }) {
                 const token = await AsyncStorage.getItem('ACCESS_TOKEN');
                 const hasToken = !!token;
 
-                // 로그인 상태면 USER_INFO도 같이 읽음
                 const user = hasToken ? await getStoredUser() : null;
 
                 const firstRoute = resolveFirstRoute(user, hasToken);
@@ -52,7 +51,5 @@ export default function AuthGate({ children }) {
         );
     }
 
-    // AuthGate는 네비게이션만 초기화해주고,
-    // 실제 화면은 NavigationContainer 쪽에서 렌더됨
     return children;
 }

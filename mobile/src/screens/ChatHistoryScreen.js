@@ -79,23 +79,20 @@ export default function ChatHistoryScreen() {
     const renderItem = ({ item }) => {
         const updated = new Date(item.updatedAt || item.createdAt);
 
-        // 🔹 24시간제 + "시/분"만 표시 (예: 17시 03분)
         const formatTime = (date) => {
-            const hh = String(date.getHours()).padStart(2, '0');   // 00~23
-            const mm = String(date.getMinutes()).padStart(2, '0'); // 00~59
+            const hh = String(date.getHours()).padStart(2, '0');
+            const mm = String(date.getMinutes()).padStart(2, '0');
             return `${hh}시 ${mm}분`;
         };
 
         const timeText = formatTime(updated);
 
-        // 🔹 백엔드에서 내려주는 첫 질문 필드 우선 사용
         const firstQuestion =
             item.firstQuestion ||
             item.firstUserMessage ||
             item.firstMessage ||
             item.title || '';
 
-        // 🔹 첫 질문이 있으면 그걸 타이틀로, 없으면 예전처럼 fallback
         const label =
             firstQuestion && firstQuestion.trim().length > 0
                 ? firstQuestion.trim()
@@ -121,7 +118,6 @@ export default function ChatHistoryScreen() {
             >
                 <View className="flex-row items-center justify-between">
                     <View className="flex-1 pr-3">
-                        {/* 타이틀: 첫 질문 내용 (또는 fallback) */}
                         <Text
                             className="text-[18px] font-semibold text-gray-900"
                             numberOfLines={1}
@@ -129,7 +125,6 @@ export default function ChatHistoryScreen() {
                             {label}
                         </Text>
 
-                        {/* 시간: 17시 03분 형태로 표시 */}
                         <Text
                             className="text-[14px] text-gray-500 mt-2"
                             numberOfLines={1}
@@ -157,9 +152,7 @@ export default function ChatHistoryScreen() {
                 backgroundColor: '#f5f6f8',
             }}
         >
-            {/* 상단 안내 영역 */}
             <View className="px-4 pt-4 pb-2">
-                {/* 새 대화 버튼 – 화면 폭 꽉 차게, 크게 */}
                 <TouchableOpacity
                     onPress={createAndOpen}
                     activeOpacity={0.9}
@@ -181,7 +174,6 @@ export default function ChatHistoryScreen() {
                 </TouchableOpacity>
             </View>
 
-            {/* 리스트 */}
             <FlatList
                 data={sessions}
                 keyExtractor={(it) => String(it.id)}

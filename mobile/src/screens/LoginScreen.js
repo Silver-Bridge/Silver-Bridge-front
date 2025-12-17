@@ -23,21 +23,17 @@ import {
 
 
 
-// 🔥 플랫폼별로 동적 로드
 let kakaoNativeLogin = null;
 if (Platform.OS === 'android') {
     try {
-        // Android 전용 네이티브 모듈 (EAS 빌드에서만 사용)
         kakaoNativeLogin = require('@react-native-seoul/kakao-login').login;
     } catch (e) {
         console.log('[KAKAO] native module load failed on Android', e);
     }
 }
 
-// .env 에 정의한 Kakao REST API Key (참고용 로그만)
 const KAKAO_REST_API_KEY = 'fda22854e56010ae0a8129a6acb4b54d';
 
-// 전화번호 하이픈 포함 포맷
 function formatPhoneKR(digits) {
     const d = (digits || '').replace(/\D/g, '');
     if (d.startsWith('02')) {
@@ -63,14 +59,10 @@ export default function LoginScreen({ navigation }) {
     );
     const canSubmit = phoneDigits.length >= 10 && password.length >= 8 && !submitting;
 
-    // 🔹 공통: role 에 따라 메인 스크린 이름 결정
     const getTargetRoot = (role) => {
         return role === 'ROLE_NOK' ? 'GuardianMain' : 'Main';
     };
 
-    // =========================
-    // 🔥 일반 로그인: 역할에 따라 분기
-    // =========================
     const onLogin = async () => {
         if (!canSubmit) {
             Alert.alert('확인', '전화번호와 비밀번호를 확인해 주세요.');
@@ -86,12 +78,10 @@ export default function LoginScreen({ navigation }) {
             const refreshToken = res?.tokens?.refreshToken;
             await setAuth({ accessToken, refreshToken });
 
-            // ✅ 응답에서 user/role/connectedElderId 꺼내기
             let user = res?.user;
             let role = user?.role;
             let connectedElderId = user?.connectedElderId ?? user?.connected_elder_id;
 
-            // 혹시 user 정보가 없으면 토큰에서 꺼내기
             if ((!user || !role) && accessToken && accessToken.split('.').length === 3) {
                 const claims = parseJwt(accessToken);
 
@@ -116,7 +106,6 @@ export default function LoginScreen({ navigation }) {
                 ),
             );
 
-            // ✅ 여기서 “최초 진입 화면” 분기
             let firstRoute = 'Main'; // 기본: 노인
 
             if (role === 'ROLE_NOK') {
@@ -149,9 +138,7 @@ export default function LoginScreen({ navigation }) {
         } catch {}
     };
 
-    // =========================
-    // ✅ 카카오 로그인 (네이티브 SDK 사용)
-    // =========================
+
     const onKakaoLogin = async () => {
         // 🔒 iOS 에서는 아예 막기
         if (Platform.OS === 'ios') {
@@ -162,7 +149,6 @@ export default function LoginScreen({ navigation }) {
             return;
         }
 
-        // 혹시 Android인데 모듈 로드 실패했을 때 방어
         if (!kakaoNativeLogin) {
             Alert.alert(
                 '오류',
@@ -176,7 +162,6 @@ export default function LoginScreen({ navigation }) {
         try {
             setKakaoSubmitting(true);
 
-            // 🔹 카카오 네이티브 SDK 로그인 (Android 전용)
             const token = await kakaoNativeLogin();
             console.log('[KAKAO NATIVE TOKEN]', token);
 
@@ -186,12 +171,10 @@ export default function LoginScreen({ navigation }) {
                 return;
             }
 
-            // 🔹 우리 서버로 소셜 로그인 요청
             const socialResult = await kakaoSocialLogin(kakaoAccessToken);
             console.log('[KAKAO LOGIN RESULT]', socialResult);
 
             if (socialResult.registered) {
-                // ✅ 기존 회원
                 const user = socialResult.user;
                 const targetRoot = getTargetRoot(user?.role);
 
@@ -203,7 +186,6 @@ export default function LoginScreen({ navigation }) {
                 );
                 Alert.alert('안내', '카카오 로그인에 성공했습니다.');
             } else {
-                // ✅ 신규 회원 – 회원가입 플로우로
                 navigation.navigate('Signup', {
                     mode: 'social',
                     tempToken: socialResult.tempToken,
@@ -223,9 +205,7 @@ export default function LoginScreen({ navigation }) {
 
     console.log('[KAKAO KEY]', KAKAO_REST_API_KEY);
 
-    // =========================
-    // UI
-    // =========================
+
     return (
         <SafeAreaView className="flex-1 bg-white">
             <KeyboardAvoidingView
@@ -238,7 +218,6 @@ export default function LoginScreen({ navigation }) {
                     contentContainerStyle={{ flexGrow: 1 }}
                 >
                     <View className="flex-1 px-6 pt-16 pb-8">
-                        {/* 타이틀 */}
                         <View className="mb-10">
                             <Text className="text-[34px] leading-[42px] font-extrabold text-gray-900 mb-3">
                                 안녕하세요{'\n'}실버브릿지입니다!
@@ -248,7 +227,6 @@ export default function LoginScreen({ navigation }) {
                             </Text>
                         </View>
 
-                        {/* 전화번호 */}
                         <TextInput
                             className="border border-gray-300 rounded-2xl px-4 py-4 text-[15px] text-gray-900"
                             placeholder="휴대폰 번호 입력"
@@ -266,7 +244,6 @@ export default function LoginScreen({ navigation }) {
                             autoCorrect={false}
                         />
 
-                        {/* 비밀번호 */}
                         <TextInput
                             className="mt-4 border border-gray-300 rounded-2xl px-4 py-4 text-[15px] text-gray-900"
                             placeholder="비밀번호 입력"
@@ -276,7 +253,6 @@ export default function LoginScreen({ navigation }) {
                             secureTextEntry
                         />
 
-                        {/* 로그인 버튼 */}
                         <TouchableOpacity
                             className={`mt-5 rounded-2xl py-4 items-center ${
                                 canSubmit ? 'bg-teal-600' : 'bg-teal-400'
@@ -290,7 +266,6 @@ export default function LoginScreen({ navigation }) {
                             </Text>
                         </TouchableOpacity>
 
-                        {/* 링크 */}
                         <View className="mt-5 mb-6 flex-row items-center justify-center">
                             <TouchableOpacity>
                                 <Text className="text-[12.5px] text-gray-500">아이디 찾기</Text>
@@ -307,7 +282,6 @@ export default function LoginScreen({ navigation }) {
                             </TouchableOpacity>
                         </View>
 
-                        {/* SNS 구분선 */}
                         <View className="my-8 flex-row items-center">
                             <View className="flex-1 h-px bg-gray-200" />
                             <Text className="mx-3 text-xs text-gray-400">
@@ -316,7 +290,6 @@ export default function LoginScreen({ navigation }) {
                             <View className="flex-1 h-px bg-gray-200" />
                         </View>
 
-                        {/* 카카오 */}
                         <TouchableOpacity
                             className="mt-6 mx-6 bg-yellow-300 rounded-xl py-4 items-center justify-center"
                             activeOpacity={0.85}

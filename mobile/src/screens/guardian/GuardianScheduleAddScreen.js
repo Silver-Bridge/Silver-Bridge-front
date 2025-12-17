@@ -22,11 +22,9 @@ import moment from 'moment';
 
 import { createScheduleApi } from '../../shared/api/calendar';
 
-// 시/분 리스트
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
 const MINUTES = ['00', '30'];
 
-// 알림 옵션
 const ALARM_OPTIONS = [
     { label: '알림 없음', value: null },
     { label: '정시 알림 (시작 시간)', value: 0 },
@@ -37,7 +35,6 @@ const ALARM_OPTIONS = [
     { label: '하루 전', value: 60 * 24 },
 ];
 
-// 24h → 오전/오후 HH:MM
 const formatKoreanTime = (h, m) => {
     if (!h || !m) return '';
     const hourNum = parseInt(h, 10);
@@ -46,7 +43,6 @@ const formatKoreanTime = (h, m) => {
     return `${period} ${String(hour12).padStart(2, '0')}:${m}`;
 };
 
-// date + hour + minute → ISO8601 (+09:00 포함)
 const buildDateTime = (dateStr, h, m) => {
     if (!dateStr || !h || !m) return null;
     const timeStr = `${h}:${m}`;
@@ -57,15 +53,12 @@ const GuardianScheduleAddScreen = () => {
     const navigation = useNavigation();
     const route = useRoute();
 
-    // 캘린더에서 넘어온 날짜 (없으면 오늘)
     const initialDate = route.params?.date ?? moment().format('YYYY-MM-DD');
 
-    // 입력 state
     const [title, setTitle] = useState('');
     const [startDate, setStartDate] = useState(initialDate);
     const [endDate, setEndDate] = useState(initialDate);
 
-    // 기본 시간: 16:30 ~ 17:30
     const [startHour, setStartHour] = useState('16');
     const [startMinute, setStartMinute] = useState('30');
     const [endHour, setEndHour] = useState('17');
@@ -162,7 +155,6 @@ const GuardianScheduleAddScreen = () => {
                 className="flex-1"
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             >
-                {/* 상단 헤더 (커스텀) */}
                 <View className="flex-row items-center py-4 px-4 border-b border-gray-100">
                     <TouchableOpacity onPress={() => navigation.goBack()}>
                         <Ionicons name="chevron-back" size={24} color="#111827" />
@@ -182,7 +174,6 @@ const GuardianScheduleAddScreen = () => {
                         alignItems: 'center',
                     }}
                 >
-                    {/* 가운데 정렬 + 최대 폭 480 */}
                     <View style={{ width: '100%', maxWidth: 480 }}>
                         {/* 제목 */}
                         <Text className="mb-2 text-lg text-gray-700 font-semibold">
@@ -203,7 +194,6 @@ const GuardianScheduleAddScreen = () => {
                             }}
                         />
 
-                        {/* 시작 날짜 */}
                         <View className="mt-7">
                             <Text className="mb-2 text-lg text-gray-700 font-semibold">
                                 시작 날짜 *
@@ -230,7 +220,6 @@ const GuardianScheduleAddScreen = () => {
                             </TouchableOpacity>
                         </View>
 
-                        {/* 종료 날짜 */}
                         <View className="mt-6">
                             <Text className="mb-2 text-lg text-gray-700 font-semibold">
                                 종료 날짜 *
@@ -257,7 +246,6 @@ const GuardianScheduleAddScreen = () => {
                             </TouchableOpacity>
                         </View>
 
-                        {/* 시작 시간 */}
                         <View className="mt-8">
                             <Text className="mb-2 text-lg text-gray-700 font-semibold">
                                 시작 시간 *
@@ -284,7 +272,7 @@ const GuardianScheduleAddScreen = () => {
                             </TouchableOpacity>
                         </View>
 
-                        {/* 종료 시간 */}
+
                         <View className="mt-6">
                             <Text className="mb-2 text-lg text-gray-700 font-semibold">
                                 종료 시간 *
@@ -311,7 +299,6 @@ const GuardianScheduleAddScreen = () => {
                             </TouchableOpacity>
                         </View>
 
-                        {/* 알림 시간 */}
                         <View className="mt-8">
                             <Text className="mb-2 text-lg text-gray-700 font-semibold">
                                 알림 시간 (선택)
@@ -332,7 +319,6 @@ const GuardianScheduleAddScreen = () => {
                             </TouchableOpacity>
                         </View>
 
-                        {/* 장소 */}
                         <View className="mt-8">
                             <Text className="mb-2 text-lg text-gray-700 font-semibold">
                                 장소 (선택)
@@ -354,7 +340,6 @@ const GuardianScheduleAddScreen = () => {
                             />
                         </View>
 
-                        {/* 메모 */}
                         <View className="mt-6 mb-6">
                             <Text className="mb-2 text-lg text-gray-700 font-semibold">
                                 메모 (선택)
@@ -378,7 +363,6 @@ const GuardianScheduleAddScreen = () => {
                     </View>
                 </ScrollView>
 
-                {/* 날짜 선택 모달 */}
                 <Modal
                     visible={!!activeDatePicker}
                     transparent
@@ -432,7 +416,6 @@ const GuardianScheduleAddScreen = () => {
                     </TouchableOpacity>
                 </Modal>
 
-                {/* 시간 선택 모달 */}
                 <Modal
                     visible={!!activeTimePicker}
                     transparent
@@ -499,7 +482,6 @@ const GuardianScheduleAddScreen = () => {
                                         </Picker>
                                     </View>
 
-                                    {/* 분 Picker */}
                                     <View className="flex-1 items-center">
                                         <Text className="text-xs text-gray-500 mb-1">
                                             분
@@ -552,7 +534,6 @@ const GuardianScheduleAddScreen = () => {
                     </TouchableOpacity>
                 </Modal>
 
-                {/* 알림 선택 모달 */}
                 <Modal
                     visible={alarmModalVisible}
                     transparent
@@ -610,7 +591,6 @@ const GuardianScheduleAddScreen = () => {
                     </TouchableOpacity>
                 </Modal>
 
-                {/* 하단 저장 버튼 */}
                 <View className="p-4 border-t border-gray-200">
                     <TouchableOpacity
                         className={`rounded-2xl py-4 items-center ${

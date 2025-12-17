@@ -8,7 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { join, login, completeSocialRegister } from '../../shared/api/auth';
 import { resetTo } from '../../navigation/navigationRef';
 
-// ===== 폰트 5단계 유틸 =====
+
 const FONT_SIZES = [14, 16, 18, 20, 22];
 const SIZE_LABELS = ['아주 작게', '조금 작게', '보통', '조금 크게', '크게'];
 const UNIT = 100 / (FONT_SIZES.length - 1);
@@ -17,7 +17,6 @@ const idxFromScale = (s = 0) => clamp(Math.round((s || 0) / UNIT));
 const sizeFromIdx = (i) => FONT_SIZES[clamp(i)];
 const scaleFromIdx = (i) => clamp(i) * UNIT;
 
-// 전화번호 하이픈 포함
 function formatPhoneKR(digits) {
     const d = (digits || '').replace(/\D/g, '');
     if (d.length <= 3) return d;
@@ -25,7 +24,6 @@ function formatPhoneKR(digits) {
     return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7, 11)}`;
 }
 
-// ✅ 주민번호 앞6/뒤1 → 생년월일(YYYY-MM-DD), 성별(Boolean) 계산
 function parseBirthAndGender(rrnFront, rrnBack1) {
     const f = (rrnFront || '').replace(/\D/g, '');
     const s = (rrnBack1 || '').replace(/\D/g, '');
@@ -52,7 +50,7 @@ export default function SignupFontScreen() {
     const { data, setData } = useSignup();
     const [submitting, setSubmitting] = useState(false);
 
-    const isSocial = data.signupMode === 'social'; // ✅ 소셜 여부
+    const isSocial = data.signupMode === 'social';
     const [currentIndex, setCurrentIndex] = useState(
         idxFromScale(data?.fontScale ?? 0),
     );
@@ -78,7 +76,6 @@ export default function SignupFontScreen() {
             );
         }
 
-        // 🔹 공통 필수값 (이름/지역/전화번호)
         if (!data?.name || !data?.region || !data?.phone) {
             return Alert.alert(
                 '안내',
@@ -86,7 +83,6 @@ export default function SignupFontScreen() {
             );
         }
 
-        // 🔹 일반 회원가입일 때만 비밀번호 필수
         if (!isSocial && !data?.password) {
             return Alert.alert('안내', '비밀번호를 입력해주세요.');
         }
@@ -105,13 +101,13 @@ export default function SignupFontScreen() {
             const fontScale = scaleFromIdx(currentIndex);
             setData((s) => ({ ...s, fontScale }));
 
-            const phoneNumber = formatPhoneKR(data.phone); // 하이픈 포함
+            const phoneNumber = formatPhoneKR(data.phone);
             const basePayload = {
                 name: data.name.trim(),
                 phoneNumber,
                 birth,
                 gender,
-                social: isSocial,      // ✅ basic:false / kakao:true
+                social: isSocial,
                 region: data.region,
                 textsize: currentLabel,
                 role: data.role,
@@ -120,8 +116,7 @@ export default function SignupFontScreen() {
             let accessToken, refreshToken, loginUser, resolvedRole, connectedElderId;
 
             if (isSocial) {
-                // 🔥 카카오 소셜 최종가입
-                const payload = basePayload; // 소셜 쪽 DTO 규격에 맞다면 그대로 사용
+                const payload = basePayload;
                 const res = await completeSocialRegister(
                     data.socialTempToken,
                     payload,
@@ -136,16 +131,13 @@ export default function SignupFontScreen() {
                     loginUser.connected_elder_id ??
                     null;
             } else {
-                // 🔥 기존 일반 회원가입
                 const payload = {
                     ...basePayload,
                     password: data.password,
                 };
 
-                // 1) 회원가입
                 await join(payload);
 
-                // 2) 자동 로그인
                 const loginRes = await login({
                     phoneNumber,
                     password: data.password,
@@ -167,7 +159,6 @@ export default function SignupFontScreen() {
                     null;
             }
 
-            // 3) 로컬 저장 (공통)
             await AsyncStorage.multiSet([
                 ['ACCESS_TOKEN', accessToken || ''],
                 ['REFRESH_TOKEN', refreshToken || ''],
@@ -189,7 +180,6 @@ export default function SignupFontScreen() {
                 ['FONT_SCALE', String(fontScale)],
             ]);
 
-            // 4) 홈으로 이동
             let target = 'Main';
             if (resolvedRole === 'ROLE_NOK') {
                 target = connectedElderId ? 'GuardianMain' : 'GuardianConnect';
@@ -213,7 +203,6 @@ export default function SignupFontScreen() {
             <Header title="글자크기" />
 
             <View className="px-6 pt-6">
-                {/* 미리보기 */}
                 <View className="rounded-xl overflow-hidden bg-gray-50 p-4 shadow-md">
                     <View className="rounded-xl overflow-hidden">
                         <View className="bg-white px-4 py-4">
@@ -243,7 +232,6 @@ export default function SignupFontScreen() {
                     현재 설정: {currentLabel} ({currentSize} pt)
                 </Text>
 
-                {/* 5점 슬라이더 */}
                 <View className="mt-8 mb-8 px-2">
                     <View className="relative w-full h-4 items-center justify-center">
                         <View

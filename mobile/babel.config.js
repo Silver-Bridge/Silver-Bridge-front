@@ -4,7 +4,7 @@ module.exports = function (api) {
     return {
         presets: [
             ["babel-preset-expo", { jsxImportSource: "nativewind" }],
-            "nativewind/babel",                 // ← preset 으로 추가
+            "nativewind/babel",
         ],
         plugins: [
             ['module:react-native-dotenv', {
@@ -13,7 +13,7 @@ module.exports = function (api) {
                 safe: false,
                 allowUndefined: true,
             }],
-            "react-native-worklets/plugin",     // ← Reanimated 4: 항상 마지막
+            "react-native-worklets/plugin",
         ],
     };
 };

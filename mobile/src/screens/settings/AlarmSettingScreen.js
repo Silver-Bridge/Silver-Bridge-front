@@ -2,15 +2,14 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, Switch, Alert, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Header from '../signup/_parts/Header'; // 👈 경로는 프로젝트 구조에 맞게 조정
-import jwtAxios from '../../shared/api/client.js'; // 👈 실제 사용하는 axios 래퍼로 변경
+import Header from '../signup/_parts/Header';
+import jwtAxios from '../../shared/api/client.js';
 
 export default function AlarmSettingScreen({ navigation }) {
     const [alarmActive, setAlarmActive] = useState(true);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
-    // ✅ AsyncStorage에서 현재 값 불러오기
     const loadFromStorage = useCallback(async () => {
         try {
             const raw = await AsyncStorage.getItem('USER_INFO');
@@ -19,7 +18,6 @@ export default function AlarmSettingScreen({ navigation }) {
                 if (typeof info.alarmActive === 'boolean') {
                     setAlarmActive(info.alarmActive);
                 } else {
-                    // 값이 없으면 기본 true
                     setAlarmActive(true);
                 }
             } else {
@@ -37,12 +35,9 @@ export default function AlarmSettingScreen({ navigation }) {
         loadFromStorage();
     }, [loadFromStorage]);
 
-    // ✅ 서버 + 로컬에 동시에 반영
     const updateAlarm = async (nextValue) => {
         setSaving(true);
         try {
-            // 🔸 백엔드 API 엔드포인트는 실제 구현에 맞게 바꿔줘
-            // 예시: PATCH /api/users/me/alarm  { alarmActive: true/false }
             await jwtAxios.patch('/api/users/me/alarm', {
                 alarmActive: nextValue,
             });
@@ -57,7 +52,6 @@ export default function AlarmSettingScreen({ navigation }) {
             await AsyncStorage.setItem('USER_INFO', JSON.stringify(info));
         } catch (e) {
             console.warn('[ALARM] update error', e);
-            // 실패 시 원래 값으로 롤백
             setAlarmActive((prev) => !nextValue);
             Alert.alert('안내', '알림 설정을 저장하지 못했습니다. 잠시 후 다시 시도해주세요.');
         } finally {
@@ -66,7 +60,6 @@ export default function AlarmSettingScreen({ navigation }) {
     };
 
     const onToggle = async (value) => {
-        // 화면 먼저 업데이트
         setAlarmActive(value);
         await updateAlarm(value);
     };
@@ -111,7 +104,7 @@ export default function AlarmSettingScreen({ navigation }) {
                         value={alarmActive}
                         onValueChange={onToggle}
                         disabled={saving}
-                        trackColor={{ false: '#d1d5db', true: '#14b8a6' }} // gray-300, teal-500
+                        trackColor={{ false: '#d1d5db', true: '#14b8a6' }}
                         thumbColor="#ffffff"
                     />
                 </View>

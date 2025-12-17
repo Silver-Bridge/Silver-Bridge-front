@@ -8,7 +8,6 @@ import { sendCodeApi, verifyCodeApi } from '../../shared/api/auth';
 
 const CARRIERS = ['SKT', 'KT', 'LG U+', '알뜰폰'];
 
-// 010-1234-5678
 function formatPhoneKR(digits) {
     const d = (digits || '').replace(/\D/g, '');
     if (d.length <= 3) return d;
@@ -25,16 +24,13 @@ export default function SignupVerifyScreen({ navigation }) {
     const [code, setCode] = useState('');
     const [localVerified, setLocalVerified] = useState(false);
 
-    // 입력은 숫자만 유지
     const phoneDigits = (data.phone || '').replace(/\D/g, '');
-    // 화면 표기 + 서버 전송용 (하이푼 포함)
     const phoneHyphen = useMemo(() => formatPhoneKR(phoneDigits), [phoneDigits]);
 
     useEffect(() => {
         setCarriers(CARRIERS);
     }, []);
 
-    // 번호 변경 시 상태 초기화
     useEffect(() => {
         setRequested(false);
         setLocalVerified(false);
@@ -42,7 +38,6 @@ export default function SignupVerifyScreen({ navigation }) {
         setCode('');
     }, [phoneDigits, setData]);
 
-    // 인증번호 발송
     const requestCode = async () => {
         if (!/^\d{10,11}$/.test(phoneDigits)) {
             return Alert.alert('확인', '휴대폰 번호를 정확히 입력해 주세요.');
@@ -61,7 +56,6 @@ export default function SignupVerifyScreen({ navigation }) {
         }
     };
 
-    // 인증번호 확인
     const verifyCode = async () => {
         if (!/^\d{6}$/.test(code)) {
             return Alert.alert('확인', '인증번호 6자리를 입력해 주세요.');
@@ -95,7 +89,6 @@ export default function SignupVerifyScreen({ navigation }) {
             <Header title="본인 인증을 해주세요" />
 
             <View className="px-6 pt-6 pb-2">
-                {/* 이름 */}
                 <TextInput
                     className="border border-gray-300 rounded-xl px-4 py-4 text-[15px] text-gray-900"
                     placeholder="이름을 입력해주세요"
@@ -104,7 +97,6 @@ export default function SignupVerifyScreen({ navigation }) {
                     onChangeText={(t) => setData((s) => ({ ...s, name: t }))}
                 />
 
-                {/* 주민번호 앞6 - 뒤1 */}
                 <View className="mt-4 flex-row">
                     <TextInput
                         className="flex-1 border border-gray-300 rounded-xl px-4 py-4 text-[15px] text-gray-900 mr-3"
@@ -138,7 +130,6 @@ export default function SignupVerifyScreen({ navigation }) {
                     <Text className="self-center ml-2 text-xl">•••••</Text>
                 </View>
 
-                {/* 통신사 선택 */}
                 <TouchableOpacity
                     className="mt-4 border border-gray-300 rounded-xl px-4 py-4 flex-row justify-between"
                     onPress={() => setCarrierOpen(true)}
@@ -154,7 +145,6 @@ export default function SignupVerifyScreen({ navigation }) {
                     <Text className="text-gray-500">▾</Text>
                 </TouchableOpacity>
 
-                {/* 휴대폰 번호 + 인증요청 */}
                 <View className="mt-4">
                     <View className="flex-row">
                         <TextInput
@@ -186,7 +176,6 @@ export default function SignupVerifyScreen({ navigation }) {
                         </TouchableOpacity>
                     </View>
 
-                    {/* 인증번호 입력 + 확인 */}
                     {requested && (
                         <View className="mt-3 flex-row">
                             <TextInput
@@ -215,12 +204,10 @@ export default function SignupVerifyScreen({ navigation }) {
                 </View>
             </View>
 
-            {/* 다음 버튼 */}
             <PrimaryButton
                 title="다음"
                 onPress={() => {
                     if (isSocial) {
-                        // 🔥 카카오 회원 → 비밀번호 단계 건너뛰기
                         navigation.navigate('SignupRegion');
                     } else {
                         // 기존 일반 회원가입
@@ -230,7 +217,6 @@ export default function SignupVerifyScreen({ navigation }) {
                 disabled={!canNext}
             />
 
-            {/* 통신사 모달 */}
             <Modal
                 animationType="slide"
                 transparent

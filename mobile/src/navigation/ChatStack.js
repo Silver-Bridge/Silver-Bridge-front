@@ -11,14 +11,14 @@ export default function ChatStack() {
     return (
         <Stack.Navigator
             screenOptions={{
-                headerShown: true,              // ✅ 헤더 표시
+                headerShown: true,
                 headerTitleAlign: 'left',
             }}
         >
             <Stack.Screen
                 name="ChatMain"
                 component={ChatScreen}
-                options={{ title: '담소방' }}  // 기본 타이틀
+                options={{ title: '담소방' }}
             />
             <Stack.Screen
                 name="대화기록"

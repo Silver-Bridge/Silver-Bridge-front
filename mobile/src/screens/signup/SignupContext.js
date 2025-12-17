@@ -2,20 +2,18 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 
 const defaultState = {
-    userType: 'USER',    // 'GUARDIAN' | 'USER'
+    userType: 'USER',
     role: 'ROLE_MEMBER',
     name: '',
     rrnFront: '',
     rrnBack1: '',
-    phone: '',           // 숫자만
+    phone: '',
     password: '',
     region: '',
     fontScale: 50,
     verified: false,
-
-    // 🔹 소셜 회원가입용
-    signupMode: 'normal',     // 'normal' | 'social'
-    socialTempToken: null,    // 백엔드 임시 JWT
+    signupMode: 'normal',
+    socialTempToken: null,
 };
 
 const Ctx = createContext(null);

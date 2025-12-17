@@ -7,7 +7,6 @@ export default function Header({ title }) {
     const nav = useNavigation();
     return (
         <SafeAreaView edges={['top']} className="bg-white">
-            {/* 상단 패딩을 넉넉히(pt-4) 줘서 '위에 붙는 느낌' 제거 */}
             <View className="px-4 pt-4 pb-3">
                 <View className="flex-row items-center">
                     <TouchableOpacity

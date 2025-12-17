@@ -3,7 +3,7 @@ import { API_BASE_URL } from '@env';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getAccessToken, setAuth } from '../auth/token';
 
-// 인증 불필요(Authorization 금지) 경로 화이트리스트
+
 const AUTH_WHITELIST = [
     '/users/login',
     '/users/join',
@@ -18,7 +18,6 @@ const isJwt = (t) => {
     return parts.length === 3 && parts.every(p => p && /^[A-Za-z0-9\-_]+$/.test(p));
 };
 
-// 끝 경로 기준 비교 보조
 function extractPath(u) {
     try {
         const s = String(u || '');
@@ -37,7 +36,6 @@ const client = axios.create({
     timeout: 60000,
 });
 
-// 요청: ACCESS_TOKEN 자동 첨부 + 진단 로그
 client.interceptors.request.use(async (config) => {
     const access = await AsyncStorage.getItem('ACCESS_TOKEN');
     if (access) {
@@ -72,7 +70,6 @@ client.interceptors.response.use(
 );
 
 
-// 에러 표준화 + 401 처리 + 헤더 토큰 갱신 저장
 client.interceptors.response.use(
     async (res) => {
         const h = res?.headers || {};
